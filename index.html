@@ -265,30 +265,6 @@ const TEAT_LABEL = {LF:"LEFT FRONT", RF:"RIGHT FRONT", LB:"LEFT BACK", RB:"RIGHT
    target: sample size per herd band, in the same order as HERD_BANDS  */
 const A = [
   {
-    id:"udder_dry", tab:"Udder<br>dry", name:"Udder hygiene — dry cows",
-    level:"cow", unit:"cows", varname:"udder_hygiene", cowtype:"dry",
-    target:[26,30,32,33,34],
-    hint:"Springer paddock, during the environment walk. One score per cow. Capped at 40 cows.",
-    options:[
-      {code:"1", label:"No dirt or manure",  c:1},
-      {code:"2", label:"2–10% covered",      c:2},
-      {code:"3", label:"10–30% covered",     c:3},
-      {code:"4", label:">30% covered",       c:4}
-    ]
-  },
-  {
-    id:"udder_lact", tab:"Udder<br>lact", name:"Udder hygiene — lactating cows",
-    level:"cow", unit:"cows", varname:"udder_hygiene", cowtype:"lactating",
-    target:[39,48,54,56,58],
-    hint:"In the bail / on the platform, every second cow. One score per cow.",
-    options:[
-      {code:"1", label:"No dirt or manure",  c:1},
-      {code:"2", label:"2–10% covered",      c:2},
-      {code:"3", label:"10–30% covered",     c:3},
-      {code:"4", label:">30% covered",       c:4}
-    ]
-  },
-  {
     id:"teat_hyg", tab:"Teat<br>hygiene", name:"Teat end hygiene (swab test)",
     level:"teat", unit:"teats", varname:"teat_end_hygiene_score",
     target:[68,74,77,79,80],
@@ -325,6 +301,30 @@ const A = [
     options:[
       {code:"G", main:"GOOD", sub:"2 hard strips reached, or ≤4 easy of 6", label:"Good", c:1},
       {code:"P", main:"POOR", sub:"5 easy strips reached, or 5–6 easy of 6", label:"Poor", c:4}
+    ]
+  },
+    {
+    id:"udder_lact", tab:"Udder<br>lact", name:"Udder hygiene — lactating cows",
+    level:"cow", unit:"cows", varname:"udder_hygiene", cowtype:"lactating",
+    target:[39,48,54,56,58],
+    hint:"In the bail / on the platform, every second cow. One score per cow.",
+    options:[
+      {code:"1", label:"No dirt or manure",  c:1},
+      {code:"2", label:"2–10% covered",      c:2},
+      {code:"3", label:"10–30% covered",     c:3},
+      {code:"4", label:">30% covered",       c:4}
+    ]
+  },
+  {
+    id:"udder_dry", tab:"Udder<br>dry", name:"Udder hygiene — dry cows",
+    level:"cow", unit:"cows", varname:"udder_hygiene", cowtype:"dry",
+    target:[26,30,32,33,34],
+    hint:"Springer paddock, during the environment walk. One score per cow. Capped at 40 cows.",
+    options:[
+      {code:"1", label:"No dirt or manure",  c:1},
+      {code:"2", label:"2–10% covered",      c:2},
+      {code:"3", label:"10–30% covered",     c:3},
+      {code:"4", label:">30% covered",       c:4}
     ]
   }
 ];

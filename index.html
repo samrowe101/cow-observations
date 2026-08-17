@@ -1,0 +1,881 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Cow Obs">
+<title>Dairy UP · Cow observations</title>
+<style>
+:root{
+  --bg:#10151b; --panel:#19212b; --panel2:#212b37; --line:#33404f; --line2:#2a3542;
+  --txt:#eef3f8; --dim:#8fa0b3;
+  --accent:#2f9bf5; --accent-dk:#1b6fbd;
+  --s1:#2fb673; --s2:#9fc63b; --s3:#f0a92a; --s4:#e04b3c;
+  --tap:#3a4a5c; --ok:#2fb673;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent;margin:0;padding:0}
+html,body{height:100%;overflow:hidden}
+body{background:var(--bg);color:var(--txt);
+  font:16px/1.35 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+  -webkit-user-select:none;user-select:none;-webkit-touch-callout:none;
+  padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)}
+button{font:inherit;color:inherit;background:none;border:none;cursor:pointer}
+.screen{display:none;height:100%;flex-direction:column}
+.screen.on{display:flex}
+
+/* ---------- SETUP ---------- */
+#setup{overflow-y:auto;-webkit-overflow-scrolling:touch;display:none;padding:20px}
+#setup.on{display:block}
+.wrap{max-width:660px;margin:0 auto}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:24px;margin-bottom:16px}
+.card h1{font-size:25px;letter-spacing:-.4px}
+.card .sub{color:var(--dim);font-size:13px;margin-bottom:8px}
+label{display:block;font-size:12px;text-transform:uppercase;letter-spacing:1px;color:var(--dim);margin:20px 0 8px}
+input[type=text],input[type=date]{width:100%;background:var(--panel2);border:1px solid var(--line);
+  border-radius:12px;padding:15px;font-size:18px;color:var(--txt);-webkit-user-select:text;user-select:text}
+input:focus{outline:none;border-color:var(--accent)}
+.pick{display:flex;flex-wrap:wrap;gap:8px}
+.pick button{flex:1 1 30%;min-width:96px;background:var(--panel2);border:1px solid var(--line);
+  border-radius:12px;padding:14px 10px;font-size:15px;font-weight:600;color:var(--dim)}
+.pick button.sel{background:var(--accent);border-color:var(--accent);color:#fff}
+.btn{display:block;width:100%;background:var(--accent);color:#fff;font-size:18px;font-weight:700;
+  padding:17px;border-radius:12px;margin-top:22px;text-align:center}
+.btn:active{background:var(--accent-dk)}
+.btn.ghost{background:var(--panel2);border:1px solid var(--line);color:var(--txt);margin-top:10px;font-weight:600;font-size:16px}
+.resume{background:#1c2c3a;border:1px solid var(--accent-dk);border-radius:12px;padding:14px;font-size:14px;margin-top:16px}
+.resume b{color:#7bc0fb}
+
+/* ---------- HEADER ---------- */
+header{display:flex;align-items:center;gap:9px;padding:7px 11px;background:var(--panel);
+  border-bottom:1px solid var(--line);flex:0 0 auto}
+.meta{font-size:11px;color:var(--dim);line-height:1.3;min-width:0;flex:1}
+.meta b{display:block;color:var(--txt);font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cowbox{background:var(--panel2);border:1px solid var(--line);border-radius:11px;padding:5px 15px;text-align:center;flex:0 0 auto}
+.cowbox .n{font-size:24px;font-weight:700;line-height:1}
+.cowbox .l{font-size:9px;color:var(--dim);text-transform:uppercase;letter-spacing:1px}
+.hbtn{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:10px 13px;
+  font-size:13px;font-weight:600;flex:0 0 auto;white-space:nowrap}
+.hbtn:active{background:var(--tap)}
+
+/* ---------- NAV ---------- */
+nav{display:flex;gap:5px;padding:7px 11px 0;background:var(--panel);overflow-x:auto;flex:0 0 auto}
+nav button{flex:1 1 0;min-width:88px;background:var(--panel2);border:1px solid var(--line);
+  border-radius:11px 11px 0 0;padding:9px 6px 10px;font-size:12.5px;font-weight:700;color:var(--dim);line-height:1.15}
+nav button.sel{background:var(--accent);border-color:var(--accent);color:#fff}
+nav button .ct{display:block;font-size:10px;font-weight:600;opacity:.8;margin-top:3px}
+nav button.full .ct{color:#6ef0a8}
+nav button.sel.full .ct{color:#d6ffe8}
+.pbar{height:3px;background:var(--line2);flex:0 0 auto}
+.pbar i{display:block;height:100%;background:var(--accent);transition:width .2s}
+.pbar i.full{background:var(--ok)}
+
+/* ---------- MAIN ---------- */
+main{flex:1 1 auto;overflow:hidden;padding:9px 11px;display:flex;flex-direction:column;min-height:0}
+.hint{font-size:11.5px;color:var(--dim);text-align:center;padding-bottom:7px;flex:0 0 auto}
+.hint b{color:var(--txt)}
+
+.grid{flex:1 1 auto;display:grid;grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr;gap:9px;min-height:0}
+.quad{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:8px;
+  display:flex;flex-direction:column;min-height:0}
+.quad.done{border-color:#3f6a51;background:#16241c}
+.qname{font-size:11.5px;font-weight:800;letter-spacing:1.3px;color:var(--dim);text-align:center;padding-bottom:6px;flex:0 0 auto}
+.quad.done .qname{color:#7fd39a}
+.opts{flex:1 1 auto;display:grid;gap:6px;min-height:0}
+.opts.n2{grid-template-columns:1fr 1fr}
+.opts.n4{grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr}
+.opt{background:var(--panel2);border:2px solid var(--line);border-radius:11px;display:flex;
+  flex-direction:column;align-items:center;justify-content:center;padding:4px;text-align:center;min-height:50px}
+.opt .code{font-size:19px;font-weight:800;line-height:1.05}
+.opt .lab{font-size:10.5px;color:var(--dim);line-height:1.15;margin-top:2px}
+.opt:active{background:var(--tap)}
+.opt.sel{color:#fff;border-color:#fff}
+.opt.sel .lab{color:rgba(255,255,255,.92)}
+.opt.sel.c1{background:var(--s1)} .opt.sel.c2{background:var(--s2);color:#11200e}
+.opt.sel.c3{background:var(--s3);color:#291b00} .opt.sel.c4{background:var(--s4)}
+.opt.sel.c2 .lab,.opt.sel.c3 .lab{color:rgba(0,0,0,.62)}
+
+/* condition quadrants */
+.opt .code.sm{font-size:14.5px;line-height:1.2}
+.quad.cond.abn{border-color:#7a3b33;background:#241614}
+.quad.cond.na{border-color:var(--line);background:var(--panel)}
+.cflags{flex:1 1 auto;display:flex;flex-wrap:wrap;gap:5px;align-content:center;justify-content:center;
+  padding:3px 0 7px;overflow:hidden;min-height:0}
+.cflags span{background:var(--s4);color:#fff;border-radius:7px;padding:3px 8px;font-size:11.5px;font-weight:700}
+.cflags .st{font-size:12px;font-weight:700;color:var(--dim);letter-spacing:.5px}
+.quad.cond .opts{flex:0 0 auto;height:58px}
+
+/* batch list */
+.batch{flex:1 1 auto;overflow-y:auto;-webkit-overflow-scrolling:touch;min-height:0}
+.row{display:flex;gap:8px;background:var(--panel);border:1px solid var(--line);border-radius:13px;padding:7px;margin-bottom:7px}
+.row.done{border-color:#3f6a51;background:#16241c}
+.rownum{flex:0 0 58px;display:flex;flex-direction:column;align-items:center;justify-content:center;background:var(--panel2);border-radius:9px}
+.rownum .n{font-size:20px;font-weight:700;line-height:1}
+.rownum .l{font-size:9px;color:var(--dim);text-transform:uppercase;letter-spacing:1px}
+.row .opts{display:flex;gap:7px;flex:1 1 auto}
+.row .opt{flex:1 1 0;min-height:58px}
+
+/* ---------- FOOTER ---------- */
+footer{display:flex;gap:8px;padding:9px 11px;background:var(--panel);border-top:1px solid var(--line);flex:0 0 auto}
+footer button{border-radius:13px;padding:15px 10px;font-size:15px;font-weight:700;border:1px solid var(--line);background:var(--panel2)}
+footer button:active{background:var(--tap)}
+footer .next{flex:1 1 auto;background:var(--accent);border-color:var(--accent);color:#fff;font-size:18px}
+footer .next:active{background:var(--accent-dk)}
+footer .sm{flex:0 0 auto;min-width:86px;font-size:13.5px}
+footer button:disabled{opacity:.32}
+
+/* ---------- PANEL (teat condition) ---------- */
+#panel{position:fixed;inset:0;background:#0c1116;z-index:50;display:none;flex-direction:column;
+  padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)}
+#panel.on{display:flex}
+.phead{display:flex;align-items:center;gap:10px;padding:11px;background:var(--panel);border-bottom:1px solid var(--line);flex:0 0 auto}
+.phead h3{flex:1;font-size:17px}
+.phead h3 small{display:block;color:var(--dim);font-size:11.5px;font-weight:400}
+.pbody{flex:1 1 auto;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:10px 11px}
+.prm{margin-bottom:11px}
+.prm .pn{font-size:11px;text-transform:uppercase;letter-spacing:1.1px;color:var(--dim);margin-bottom:6px}
+.prm .pr{display:flex;gap:6px;flex-wrap:wrap}
+.prm .pr button{flex:1 1 0;min-width:78px;background:var(--panel2);border:2px solid var(--line);
+  border-radius:10px;padding:12px 6px;font-size:13px;font-weight:700;color:var(--dim);line-height:1.2}
+.prm .pr button small{display:block;font-size:10px;font-weight:500;opacity:.8}
+.prm .pr button.sel{background:var(--s4);border-color:#fff;color:#fff}
+.prm .pr button.sel.norm{background:var(--s1)}
+.pfoot{display:flex;gap:8px;padding:10px 11px;background:var(--panel);border-top:1px solid var(--line);flex:0 0 auto}
+.pfoot button{border-radius:13px;padding:15px;font-size:16px;font-weight:700;border:1px solid var(--line);background:var(--panel2)}
+.pfoot .done{flex:1 1 auto;background:var(--accent);border-color:var(--accent);color:#fff;font-size:18px}
+
+/* ---------- REVIEW ---------- */
+.rvhead{display:flex;align-items:center;gap:8px;padding:11px;background:var(--panel);border-bottom:1px solid var(--line);flex:0 0 auto}
+.rvhead h2{font-size:16px;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rvbody{flex:1 1 auto;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:12px}
+h4.sec{font-size:12px;text-transform:uppercase;letter-spacing:1.2px;color:var(--dim);margin:20px 0 9px}
+h4.sec:first-child{margin-top:0}
+.tiles{display:flex;flex-wrap:wrap;gap:8px}
+.tile{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:11px 13px;flex:1 1 150px}
+.tile .v{font-size:21px;font-weight:700}
+.tile .v.warn{color:var(--s3)} .tile .v.bad{color:var(--s4)} .tile .v.good{color:var(--s1)}
+.tile .k{font-size:10.5px;color:var(--dim);text-transform:uppercase;letter-spacing:.7px;margin-top:2px;line-height:1.3}
+.tile .d{font-size:11px;color:var(--dim);margin-top:3px}
+table{width:100%;border-collapse:collapse;font-size:13.5px}
+th{text-align:left;font-size:10.5px;text-transform:uppercase;letter-spacing:.8px;color:var(--dim);padding:7px;border-bottom:1px solid var(--line)}
+td{padding:9px 7px;border-bottom:1px solid #253140}
+.del{color:var(--s4);font-weight:700;padding:5px 9px}
+.jump{color:var(--accent);font-weight:700;padding:5px 9px}
+.empty{text-align:center;color:var(--dim);padding:44px 20px;font-size:15px}
+.chip{background:var(--panel2);border-radius:6px;padding:2px 7px;font-size:11.5px;margin-right:4px;display:inline-block}
+
+#toast{position:fixed;left:50%;bottom:94px;transform:translateX(-50%) translateY(14px);background:#000e;
+  border:1px solid var(--line);border-radius:11px;padding:11px 20px;font-size:14px;font-weight:600;
+  opacity:0;pointer-events:none;transition:.18s;z-index:99;max-width:82vw;text-align:center}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+</style>
+</head>
+<body>
+
+<!-- ═══════════ SETUP ═══════════ -->
+<section id="setup" class="screen on">
+ <div class="wrap">
+  <div class="card">
+    <h1>Cow observations</h1>
+    <div class="sub">Dairy UP 2.0 &middot; Mastitis &middot; Stream 1.2 farm visit</div>
+    <div id="resumeBox"></div>
+    <label for="fFarm">Farm ID / name</label>
+    <input type="text" id="fFarm" autocomplete="off" autocapitalize="words" placeholder="Farm ID or name">
+    <label for="fDate">Visit date</label>
+    <input type="date" id="fDate">
+    <label>Observer</label>
+    <div class="pick" id="pObs"></div>
+    <input type="text" id="fObsOther" placeholder="Other observer" style="display:none;margin-top:8px">
+    <label>Herd size (sets the sample targets)</label>
+    <div class="pick" id="pHerd"></div>
+    <button class="btn" id="startBtn">Start farm visit</button>
+    <button class="btn ghost" id="allDataBtn">Saved visits &amp; export</button>
+  </div>
+ </div>
+</section>
+
+<!-- ═══════════ MAIN ═══════════ -->
+<section id="main" class="screen">
+  <header>
+    <button class="hbtn" id="homeBtn">&#9776;</button>
+    <div class="meta"><b id="mFarm">—</b><span id="mDate">—</span></div>
+    <button class="hbtn" id="mirrorBtn">&#8646;</button>
+    <div class="cowbox" id="cowBox"><div class="n" id="mCow">1</div><div class="l">Cow</div></div>
+    <button class="hbtn" id="reviewBtn">Review</button>
+  </header>
+  <nav id="nav"></nav>
+  <div class="pbar"><i id="pbar"></i></div>
+  <main>
+    <div class="hint" id="hint"></div>
+    <div id="area"></div>
+  </main>
+  <footer id="foot"></footer>
+</section>
+
+<!-- ═══════════ TEAT CONDITION PANEL ═══════════ -->
+<div id="panel">
+  <div class="phead">
+    <h3 id="pTitle">Teat<small id="pSub"></small></h3>
+    <button class="hbtn" id="pNA">Not examined</button>
+    <button class="hbtn" id="pNorm">All normal</button>
+  </div>
+  <div class="pbody" id="pBody"></div>
+  <div class="pfoot">
+    <button id="pPrev">&#8592; Prev teat</button>
+    <button class="done" id="pDone">Done — return to view of all 4 teats</button>
+    <button id="pNext">Next teat &#8594;</button>
+  </div>
+</div>
+
+<!-- ═══════════ REVIEW ═══════════ -->
+<section id="review" class="screen">
+  <div class="rvhead">
+    <button class="hbtn" id="rvBack">&#8592;</button>
+    <h2 id="rvTitle">Visit data</h2>
+    <button class="hbtn" id="rvCsv">Export CSV</button>
+    <button class="hbtn" id="rvCopy">Copy</button>
+  </div>
+  <div class="rvbody" id="rvBody"></div>
+</section>
+
+<div id="toast"></div>
+
+<script>
+"use strict";
+
+/* ══════════════════════════════════════════════════════════════════
+   PROTOCOL CONFIG
+   Sources: Dairy Up Stream 1.2 protocol documents (Investigation
+   resources/Protocols) and "Stream 1.2 - Data collection design.xlsx",
+   Measurements sheet. Edit here if a protocol changes.
+   ══════════════════════════════════════════════════════════════════ */
+
+const HERD_BANDS = ["100","200","400","600","1000+"];
+
+const OBSERVERS = ["Dini H","Luke I","Francisco S","Nicholas G","Paige A","Sam R"];
+
+const TEATS = ["LF","RF","LB","RB"];
+const TEAT_LABEL = {LF:"LEFT FRONT", RF:"RIGHT FRONT", LB:"LEFT BACK", RB:"RIGHT BACK"};
+
+/* level: "cow" = scrolling list, many cows per screen
+          "teat" = 2x2 quadrant grid, one cow at a time
+          "cond" = 2x2 grid, tap a teat to open the parameter panel
+   unit  : what the target counts (cows / teats / quarters)
+   target: sample size per herd band, in the same order as HERD_BANDS  */
+const A = [
+  {
+    id:"udder_dry", tab:"Udder<br>dry", name:"Udder hygiene — dry cows",
+    level:"cow", unit:"cows", varname:"udder_hygiene", cowtype:"dry",
+    target:[26,30,32,33,34],
+    hint:"Springer paddock, during the environment walk. One score per cow. Capped at 40 cows.",
+    options:[
+      {code:"1", label:"No dirt or manure",  c:1},
+      {code:"2", label:"2–10% covered",      c:2},
+      {code:"3", label:"10–30% covered",     c:3},
+      {code:"4", label:">30% covered",       c:4}
+    ]
+  },
+  {
+    id:"udder_lact", tab:"Udder<br>lact", name:"Udder hygiene — lactating cows",
+    level:"cow", unit:"cows", varname:"udder_hygiene", cowtype:"lactating",
+    target:[39,48,54,56,58],
+    hint:"In the bail / on the platform, every second cow. One score per cow.",
+    options:[
+      {code:"1", label:"No dirt or manure",  c:1},
+      {code:"2", label:"2–10% covered",      c:2},
+      {code:"3", label:"10–30% covered",     c:3},
+      {code:"4", label:">30% covered",       c:4}
+    ]
+  },
+  {
+    id:"teat_hyg", tab:"Teat<br>hygiene", name:"Teat end hygiene (swab test)",
+    level:"teat", unit:"teats", varname:"teat_end_hygiene_score",
+    target:[68,74,77,79,80],
+    hint:"After the farm's normal prep. One firm wipe per teat, compare swab to the scorecard.",
+    options:[
+      {code:"1", main:"Clean",                   label:"Clean",                    c:1},
+      {code:"2", main:"Clean — predip on swab",  label:"Clean - predip on swab",   c:2},
+      {code:"3", main:"Dirty (slightly)",        label:"Dirty (slightly)",         c:3},
+      {code:"4", main:"Dirty",                   label:"Dirty",                    c:4}
+    ]
+  },
+  {
+    id:"dip", tab:"Dip<br>coverage", name:"Teat dip coverage (paper test)",
+    level:"teat", unit:"teats", varname:"teat_barrel_disinfectant_covered",
+    target:[32,34,34,35,35],
+    hint:"Straight after dipping. Wrap a dry towel round the full circumference of the barrel.",
+    options:[
+      {code:"Y", main:"Covered",           sub:"disinfectant right round the towel", label:"Covered",           c:1},
+      {code:"N", main:"Dry patch visible", sub:"part of the barrel missed",          label:"Dry patch visible", c:4}
+    ]
+  },
+  {
+    id:"condition", tab:"Teat<br>condition", name:"Teat end & teat condition",
+    level:"cond", unit:"teats",
+    target:[103,119,128,131,134],
+    hint:"Within 30–60 s of cups off, under a torch. Tap NORMAL, or ABNORMAL to record the details.",
+    options:[]
+  },
+  {
+    id:"milkout", tab:"Milk-out", name:"Completeness of milking (Easy Strips)",
+    level:"teat", unit:"quarters", varname:"milking_complete",
+    target:[68,74,77,79,80],
+    hint:"Stop at 2 hard strips → GOOD, or 5 easy strips → POOR. Otherwise 5+ easy of 6 = POOR.",
+    options:[
+      {code:"G", main:"GOOD", sub:"2 hard strips reached, or ≤4 easy of 6", label:"Good", c:1},
+      {code:"P", main:"POOR", sub:"5 easy strips reached, or 5–6 easy of 6", label:"Poor", c:4}
+    ]
+  }
+];
+
+/* Teat condition parameters — NMC 2007 / Countdown Technote 9, as per
+   "Teat end scoring protocol.docx". norm = the value recorded when the
+   observer does not flag anything.                                    */
+const PARAMS = [
+  {id:"hyperk",   name:"Teat-end hyperkeratosis", norm:"N", opts:[
+      {c:"N",  l:"None", s:"score 0", norm:1},
+      {c:"R",  l:"Rough", s:"score 1–2"},
+      {c:"VR", l:"Very rough", s:"score ≥3"}]},
+  {id:"orifice",  name:"Orifice", norm:"N", opts:[
+      {c:"N", l:"Closed", norm:1}, {c:"O", l:"Open"}]},
+  {id:"firmness", name:"Teat-end firmness", norm:"N", opts:[
+      {c:"N", l:"Normal", norm:1}, {c:"F", l:"Firm"}]},
+  {id:"swelling", name:"Swelling at the base", norm:"N", opts:[
+      {c:"N", l:"Normal", norm:1}, {c:"S", l:"Swollen"}]},
+  {id:"colour",   name:"Colour", norm:"N", opts:[
+      {c:"N", l:"Normal", s:"pink", norm:1},
+      {c:"R", l:"Red",    s:"irritated / red-blue"}]},
+  {id:"skin",     name:"Dryness (friction test)", norm:"N", opts:[
+      {c:"N",  l:"Smooth",   s:"fingers glide", norm:1},
+      {c:"SR", l:"Slightly rough", s:"some drag"},
+      {c:"VR", l:"Very rough",     s:"glove puckers"}]},
+  {id:"chaps",    name:"Chaps", norm:"N", opts:[
+      {c:"N",  l:"None", norm:1},
+      {c:"M",  l:"Minor"},
+      {c:"SE", l:"Severe", s:"extensive"}]},
+  {id:"damage",   name:"Cutaneous damage", norm:"N", multi:true, opts:[
+      {c:"S",  l:"Suckling"}, {c:"I", l:"Insect"}, {c:"A", l:"Abrasions"},
+      {c:"C",  l:"Cuts"},     {c:"SB", l:"Sunburn"}, {c:"FB", l:"Frostbite"}]}
+];
+
+/* ══════════════════════════════════════════════════════════════════
+   STORAGE
+   ══════════════════════════════════════════════════════════════════ */
+const KEY = "dairyup_cowobs_v2";
+const mem = {};
+const store = {
+  get(k){ try{ return localStorage.getItem(k); }catch(e){ return mem[k] ?? null; } },
+  set(k,v){ try{ localStorage.setItem(k,v); }catch(e){ mem[k]=v; } }
+};
+const loadAll = () => { try{ return JSON.parse(store.get(KEY)||"[]"); }catch(e){ return []; } };
+const saveAll = l  => store.set(KEY, JSON.stringify(l));
+function persist(){
+  if (!S) return;
+  const all = loadAll(); const i = all.findIndex(x => x.id === S.id);
+  if (i >= 0) all[i] = S; else all.push(S);
+  saveAll(all);
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   STATE
+   ══════════════════════════════════════════════════════════════════ */
+let S = null, ai = 0, mirrored = false, ROWS = 10;
+let panelTeat = null;
+const a  = () => A[ai];
+const $  = id => document.getElementById(id);
+const band = () => Math.max(0, HERD_BANDS.indexOf(S.herd));
+const target = as => as.target[band()];
+
+function show(n){ ["setup","main","review"].forEach(s => $(s).classList.toggle("on", s===n)); }
+let tT; function toast(m){ const t=$("toast"); t.textContent=m; t.classList.add("show");
+  clearTimeout(tT); tT=setTimeout(()=>t.classList.remove("show"),1500); }
+function tick(){ if (navigator.vibrate) try{ navigator.vibrate(11); }catch(e){} }
+
+/* records: {a, cow, teat|null, p, code, ts}  — p = parameter/variable name */
+const rec  = (aid,cow,teat,p) => S.recs.find(r => r.a===aid && r.cow===cow && r.teat===teat && r.p===p);
+const recsOf = aid => S.recs.filter(r => r.a===aid);
+
+function setSimple(aid, cow, teat, p, code){
+  const r = rec(aid,cow,teat,p);
+  if (r && r.code === code){ S.recs.splice(S.recs.indexOf(r),1); }   // tap again to clear
+  else if (r){ r.code = code; r.ts = Date.now(); }
+  else S.recs.push({a:aid, cow, teat, p, code, ts:Date.now()});
+  persist();
+}
+function clearUnit(aid, cow, teat){
+  S.recs = S.recs.filter(r => !(r.a===aid && r.cow===cow && (teat===undefined || r.teat===teat)));
+  persist();
+}
+/* how many units counted toward the target */
+function count(as){
+  const rs = recsOf(as.id);
+  if (as.level === "cow")  return new Set(rs.map(r=>r.cow)).size;
+  if (as.level === "teat") return new Set(rs.map(r=>r.cow+"|"+r.teat)).size;
+  return new Set(rs.filter(r=>r.p==="colour" && r.code!=="NA").map(r=>r.cow+"|"+r.teat)).size;
+}
+const cowOf = aid => (S.cow[aid] = S.cow[aid] || 1);
+const startOf = aid => (S.start[aid] = S.start[aid] || 1);
+
+/* ══════════════════════════════════════════════════════════════════
+   RENDER
+   ══════════════════════════════════════════════════════════════════ */
+function renderNav(){
+  $("nav").innerHTML = A.map((x,i)=>{
+    const n = count(x), t = target(x), full = n >= t;
+    return `<button data-i="${i}" class="${i===ai?"sel":""} ${full?"full":""}">${x.tab}
+      <span class="ct">${n}/${t}${full?" ✓":""}</span></button>`;
+  }).join("");
+  const as = a(), n = count(as), t = target(as);
+  const p = $("pbar"); p.style.width = Math.min(100, n/t*100) + "%";
+  p.classList.toggle("full", n >= t);
+}
+
+function render(){
+  const as = a();
+  $("mFarm").textContent = S.farm;
+  $("mDate").textContent = S.date + " · " + S.observer + " · herd " + S.herd;
+  $("hint").innerHTML = `<b>${as.name}</b> — ${as.hint} &nbsp;·&nbsp; <b>${count(as)} / ${target(as)} ${as.unit}</b>`;
+  const teatish = as.level !== "cow";
+  $("mirrorBtn").style.display = teatish ? "" : "none";
+  $("cowBox").style.display    = teatish ? "" : "none";
+  $("mCow").textContent = cowOf(as.id);
+  renderNav();
+  if (as.level === "cow")  renderBatch();
+  else if (as.level === "teat") renderGrid();
+  else renderCond();
+  renderFoot();
+}
+
+const order = () => mirrored ? ["RF","LF","RB","LB"] : ["LF","RF","LB","RB"];
+
+function optHTML(as, code, on){
+  const o = as.options.find(x=>x.code===code);
+  const main = o.main || o.code;                      // big text on the button
+  const sub  = o.sub !== undefined ? o.sub : (o.main ? "" : o.label);
+  return `<button class="opt ${on?"sel":""} ${o.c?"c"+o.c:""}" data-code="${code}">
+    <span class="code ${main.length>7?"sm":""}">${main}</span>
+    ${sub?`<span class="lab">${sub}</span>`:""}</button>`;
+}
+
+function renderGrid(){
+  const as = a(), cow = cowOf(as.id), n = "n"+(as.options.length<=2?2:4);
+  $("area").className = "grid";
+  $("area").innerHTML = order().map(t=>{
+    const r = rec(as.id, cow, t, as.varname);
+    return `<div class="quad ${r?"done":""}" data-teat="${t}">
+      <div class="qname">${TEAT_LABEL[t]}</div>
+      <div class="opts ${n}">${as.options.map(o=>optHTML(as,o.code, r && r.code===o.code)).join("")}</div>
+    </div>`;
+  }).join("");
+}
+
+function condState(cow, teat){
+  const na = rec("condition",cow,teat,"colour");
+  if (!na) return {status:"blank", flags:[]};
+  if (na.code === "NA") return {status:"na", flags:[]};
+  const flags = [];
+  PARAMS.forEach(p=>{
+    const r = rec("condition",cow,teat,p.id);
+    if (!r || r.code === p.norm) return;
+    r.code.split("+").forEach(c => flags.push(p.id==="damage" ? c : p.id.slice(0,4)+":"+c));
+  });
+  return {status: flags.length ? "abn" : "normal", flags};
+}
+function renderCond(){
+  const cow = cowOf("condition");
+  $("area").className = "grid";
+  $("area").innerHTML = order().map(t=>{
+    const st = condState(cow,t);
+    const cls = st.status==="abn" ? "abn" : st.status==="na" ? "na" : "";
+    const mid = st.status==="na"   ? `<span class="st">NOT EXAMINED</span>`
+              : st.status==="abn"  ? st.flags.map(f=>`<span>${f}</span>`).join("")
+              : st.status==="blank"? `<span class="st">NOT SCORED</span>` : "";
+    return `<div class="quad cond ${cls} ${st.status!=="blank"?"done":""}" data-teat="${t}">
+      <div class="qname">${TEAT_LABEL[t]}</div>
+      <div class="cflags">${mid}</div>
+      <div class="opts n2">
+        <button class="opt ${st.status==="normal"?"sel c1":""}" data-act="normal">
+          <span class="code sm">NORMAL</span></button>
+        <button class="opt ${st.status==="abn"?"sel c4":""}" data-act="abn">
+          <span class="code sm">ABNORMAL</span><span class="lab">tap for details</span></button>
+      </div></div>`;
+  }).join("");
+}
+function setCondNormal(cow, teat){
+  clearUnit("condition", cow, teat);
+  PARAMS.forEach(p => S.recs.push({a:"condition", cow, teat, p:p.id, code:p.norm, ts:Date.now()}));
+  persist();
+}
+
+function renderBatch(){
+  const as = a(), start = startOf(as.id);
+  $("area").className = "batch";
+  let h = "";
+  for (let c = start; c < start + ROWS; c++){
+    const r = rec(as.id, c, null, as.varname);
+    h += `<div class="row ${r?"done":""}" data-cow="${c}">
+      <div class="rownum"><div class="n">${c}</div><div class="l">Cow</div></div>
+      <div class="opts">${as.options.map(o=>optHTML(as,o.code, r && r.code===o.code)).join("")}</div></div>`;
+  }
+  $("area").innerHTML = h;
+}
+
+function renderFoot(){
+  const as = a();
+  if (as.level === "cow"){
+    const start = startOf(as.id);
+    $("foot").innerHTML = `
+      <button class="sm" id="b1" ${start<=1?"disabled":""}>&#8592; Back</button>
+      <button class="sm" id="b2">Next blank</button>
+      <button class="next" id="b3">Next ${ROWS} cows &#8594;</button>`;
+    $("b1").onclick = ()=>{ S.start[as.id]=Math.max(1,start-ROWS); persist(); render(); };
+    $("b2").onclick = ()=>{ let c=1; while(rec(as.id,c,null,as.varname)) c++;
+      S.start[as.id]=Math.max(1,c); persist(); render(); toast("Next blank: cow "+c); };
+    $("b3").onclick = ()=>{ S.start[as.id]=start+ROWS; persist(); render(); tick(); };
+  } else {
+    const cow = cowOf(as.id);
+    const has = S.recs.some(r=>r.a===as.id && r.cow===cow);
+    $("foot").innerHTML = `
+      <button class="sm" id="b1" ${cow<=1?"disabled":""}>&#8592; Cow ${cow-1}</button>
+      <button class="sm" id="b2" ${has?"":"disabled"}>Clear cow</button>
+      <button class="next" id="b3">${as.level==="cond"&&!has?"All 4 normal · next cow":"Next cow"} &#8594;</button>`;
+    $("b1").onclick = ()=>{ S.cow[as.id]=cow-1; persist(); render(); };
+    $("b2").onclick = ()=>{ clearUnit(as.id,cow); render(); toast("Cow "+cow+" cleared"); };
+    $("b3").onclick = ()=>{
+      if (as.level === "cond") commitCond(cow);
+      else if (!has) toast("Nothing recorded for cow "+cow);
+      S.cow[as.id] = cow+1; persist(); render(); tick();
+    };
+  }
+}
+
+/* Commit the condition cow: any teat not touched is recorded normal. */
+function commitCond(cow){
+  TEATS.forEach(t=>{
+    if (rec("condition",cow,t,"colour")) return;          // already has data or NA
+    PARAMS.forEach(p => S.recs.push({a:"condition", cow, teat:t, p:p.id, code:p.norm, ts:Date.now()}));
+  });
+  persist();
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   TEAT CONDITION PANEL
+   ══════════════════════════════════════════════════════════════════ */
+function openPanel(teat){
+  panelTeat = teat;
+  const cow = cowOf("condition");
+  $("pTitle").innerHTML = `${TEAT_LABEL[teat]}<small>Cow ${cow} · teat condition</small>`;
+  // seed with normals if untouched
+  if (!rec("condition",cow,teat,"colour"))
+    PARAMS.forEach(p => S.recs.push({a:"condition", cow, teat, p:p.id, code:p.norm, ts:Date.now()}));
+  drawPanel(); $("panel").classList.add("on");
+}
+function drawPanel(){
+  const cow = cowOf("condition"), teat = panelTeat;
+  const na = (rec("condition",cow,teat,"colour")||{}).code === "NA";
+  $("pBody").innerHTML = na
+    ? `<div class="empty">This teat is recorded as <b>not examined</b>.<br>It will not count toward the sample target.<br><br>Tap “Not examined” again to score it.</div>`
+    : PARAMS.map(p=>{
+      const r = rec("condition",cow,teat,p.id);
+      const cur = r ? r.code.split("+") : [p.norm];
+      return `<div class="prm"><div class="pn">${p.name}</div><div class="pr" data-p="${p.id}">
+        ${p.multi?`<button class="${cur.includes("N")?"sel norm":""}" data-c="N">None</button>`:""}
+        ${p.opts.map(o=>`<button class="${cur.includes(o.c)?"sel"+(o.norm?" norm":""):""}" data-c="${o.c}">
+            ${o.l}${o.s?`<small>${o.s}</small>`:""}</button>`).join("")}
+      </div></div>`;
+    }).join("");
+}
+$("pBody").addEventListener("click", e=>{
+  const b = e.target.closest("button[data-c]"); if(!b) return;
+  const pid = b.closest(".pr").dataset.p, p = PARAMS.find(x=>x.id===pid);
+  const cow = cowOf("condition"), teat = panelTeat, r = rec("condition",cow,teat,pid);
+  let cur = r ? r.code.split("+") : [p.norm];
+  const c = b.dataset.c;
+  if (p.multi){
+    if (c === "N") cur = ["N"];
+    else { cur = cur.filter(x=>x!=="N");
+           cur.includes(c) ? cur.splice(cur.indexOf(c),1) : cur.push(c);
+           if (!cur.length) cur = ["N"]; }
+  } else cur = [c];
+  r.code = cur.join("+"); r.ts = Date.now();
+  persist(); drawPanel(); tick();
+});
+$("pNA").onclick = ()=>{
+  const cow = cowOf("condition"), teat = panelTeat;
+  const isNA = (rec("condition",cow,teat,"colour")||{}).code === "NA";
+  clearUnit("condition",cow,teat);
+  PARAMS.forEach(p=>S.recs.push({a:"condition",cow,teat,p:p.id,code:isNA?p.norm:"NA",ts:Date.now()}));
+  persist(); drawPanel(); toast(isNA?"Teat back in the sample":"Marked not examined");
+};
+$("pNorm").onclick = ()=>{
+  const cow = cowOf("condition"), teat = panelTeat;
+  clearUnit("condition",cow,teat);
+  PARAMS.forEach(p=>S.recs.push({a:"condition",cow,teat,p:p.id,code:p.norm,ts:Date.now()}));
+  persist(); drawPanel(); toast("All parameters normal");
+};
+$("pDone").onclick = ()=>{ $("panel").classList.remove("on"); render(); };
+$("pPrev").onclick = ()=>{ const o=order(); openPanel(o[(o.indexOf(panelTeat)+3)%4]); };
+$("pNext").onclick = ()=>{ const o=order(); openPanel(o[(o.indexOf(panelTeat)+1)%4]); };
+
+/* ══════════════════════════════════════════════════════════════════
+   EVENTS
+   ══════════════════════════════════════════════════════════════════ */
+$("nav").addEventListener("click", e=>{
+  const b = e.target.closest("button[data-i]"); if(!b) return;
+  ai = +b.dataset.i; S.last = a().id; persist(); render(); tick();
+});
+$("area").addEventListener("click", e=>{
+  const as = a();
+  if (as.level === "cond"){
+    const b = e.target.closest("button[data-act]"); if(!b) return;
+    const teat = b.closest(".quad").dataset.teat;
+    if (b.dataset.act === "normal"){
+      setCondNormal(cowOf("condition"), teat);
+      renderCond(); renderNav(); renderFoot();
+    } else openPanel(teat);
+    tick(); return;
+  }
+  const b = e.target.closest(".opt"); if(!b) return;
+  if (as.level === "teat"){
+    setSimple(as.id, cowOf(as.id), b.closest(".quad").dataset.teat, as.varname, b.dataset.code);
+    renderGrid();
+  } else {
+    setSimple(as.id, +b.closest(".row").dataset.cow, null, as.varname, b.dataset.code);
+    renderBatch();
+  }
+  renderNav(); renderFoot(); tick();
+});
+$("mirrorBtn").onclick = ()=>{ mirrored=!mirrored; render();
+  toast(mirrored?"Right side shown on the left":"Left side shown on the left"); };
+$("homeBtn").onclick   = ()=>{ persist(); show("setup"); initSetup(); };
+$("reviewBtn").onclick = ()=> renderReview();
+$("rvBack").onclick    = ()=> show("main");
+
+/* ══════════════════════════════════════════════════════════════════
+   SUMMARY + EXPORT
+   ══════════════════════════════════════════════════════════════════ */
+function pct(n,d){ return d ? (100*n/d) : null; }
+function fmt(v,dp){ return v===null||v===undefined ? "—" : v.toFixed(dp===undefined?1:dp)+"%"; }
+
+function summary(){
+  const out = [];
+  const push = (k,v,d,tone) => out.push({k,v,d,tone});
+
+  ["udder_dry","udder_lact"].forEach(id=>{
+    const as = A.find(x=>x.id===id), rs = recsOf(id);
+    if (!rs.length) return;
+    const sc = rs.map(r=>+r.code), hi = sc.filter(s=>s>=3).length;
+    push(as.name+" — mean score", (sc.reduce((x,y)=>x+y,0)/sc.length).toFixed(2),
+         sc.length+" cows", null);
+    push(as.name+" — % score 3 or 4", fmt(pct(hi,sc.length)), hi+" of "+sc.length,
+         pct(hi,sc.length) > 20 ? "bad" : "good");
+  });
+
+  const th = recsOf("teat_hyg");
+  if (th.length){
+    const sc = th.map(r=>+r.code), hi = sc.filter(s=>s>=3).length;
+    push("Teat end hygiene — mean", (sc.reduce((x,y)=>x+y,0)/sc.length).toFixed(2), sc.length+" teats", null);
+    push("Teat end hygiene — % 3 or 4", fmt(pct(hi,sc.length)), hi+" of "+sc.length, pct(hi,sc.length)>20?"bad":"good");
+  }
+
+  const dp = recsOf("dip");
+  if (dp.length){
+    const y = dp.filter(r=>r.code==="Y").length;
+    push("teat_barrel_disinfectant_covered", fmt(pct(y,dp.length)), y+" of "+dp.length+" teats covered",
+         pct(y,dp.length) < 90 ? "bad" : "good");
+  }
+
+  const mo = recsOf("milkout");
+  if (mo.length){
+    const poor = mo.filter(r=>r.code==="P").length;
+    push("incomplete_milking_pct", fmt(pct(poor,mo.length)), poor+" of "+mo.length+" quarters poor",
+         pct(poor,mo.length) > 20 ? "bad" : "good");
+  }
+
+  // teat condition farm-level outcomes
+  const teats = {};
+  recsOf("condition").forEach(r=>{ (teats[r.cow+"|"+r.teat] = teats[r.cow+"|"+r.teat] || {})[r.p] = r.code; });
+  const ex = Object.values(teats).filter(t => t.colour !== "NA");
+  if (ex.length){
+    const n = ex.length;
+    const has = (t,p,vals) => vals.some(v => (t[p]||"N").split("+").includes(v));
+    push("teat_lesions_pct",   fmt(pct(ex.filter(t=>(t.damage||"N")!=="N").length,n)), n+" teats examined", null);
+    push("teat_redblue_pct",   fmt(pct(ex.filter(t=>has(t,"colour",["R"])).length,n)), null, null);
+    push("teat_swollen_pct",   fmt(pct(ex.filter(t=>has(t,"swelling",["S"])).length,n)), null, null);
+    push("teat_firm_pct",      fmt(pct(ex.filter(t=>has(t,"firmness",["F"])).length,n)), null, null);
+    push("teat_open_orifice_pct", fmt(pct(ex.filter(t=>has(t,"orifice",["O"])).length,n)), null, null);
+    push("teat_hyperk_rough_pct", fmt(pct(ex.filter(t=>has(t,"hyperk",["R","VR"])).length,n)),
+         "rough + very rough", null);
+    push("teat_skin_rough_pct", fmt(pct(ex.filter(t=>has(t,"skin",["SR","VR"])).length,n)),
+         "slightly + very rough", null);
+    push("teat_chaps_pct",     fmt(pct(ex.filter(t=>has(t,"chaps",["M","SE"])).length,n)), "minor + severe", null);
+  }
+  return out;
+}
+
+function renderReview(){
+  show("review");
+  $("rvTitle").textContent = S.farm + " · " + S.date;
+  let h = `<h4 class="sec">Sample progress (herd size ${S.herd})</h4><div class="tiles">` +
+    A.map(x=>{ const n=count(x), t=target(x), done=n>=t;
+      return `<div class="tile"><div class="v ${done?"good":n?"warn":"bad"}">${n} / ${t}</div>
+        <div class="k">${x.name}</div><div class="d">${done?"target met":(t-n)+" "+x.unit+" to go"}</div></div>`;
+    }).join("") + `</div>`;
+
+  const sm = summary();
+  if (sm.length) h += `<h4 class="sec">Farm-level outcomes (live)</h4><div class="tiles">` +
+    sm.map(s=>`<div class="tile"><div class="v ${s.tone||""}">${s.v}</div>
+      <div class="k">${s.k}</div>${s.d?`<div class="d">${s.d}</div>`:""}</div>`).join("") + `</div>`;
+
+  h += `<h4 class="sec">Records (${S.recs.length})</h4>`;
+  const grouped = {};
+  S.recs.forEach(r=>{ const k = r.a+"|"+r.cow+"|"+(r.teat||""); (grouped[k]=grouped[k]||[]).push(r); });
+  const keys = Object.keys(grouped).sort((x,y)=>{
+    const p1=x.split("|"), p2=y.split("|");
+    return A.findIndex(z=>z.id===p1[0])-A.findIndex(z=>z.id===p2[0]) || p1[1]-p2[1] ||
+           TEATS.indexOf(p1[2])-TEATS.indexOf(p2[2]);
+  });
+  if (!keys.length) h += `<div class="empty">Nothing recorded yet.</div>`;
+  else {
+    h += `<table><thead><tr><th>Assessment</th><th>Cow</th><th>Teat</th><th>Result</th><th></th><th></th></tr></thead><tbody>`;
+    h += keys.map((k,i)=>{
+      const parts = k.split("|"), aid = parts[0], cow = parts[1], teat = parts[2];
+      const as = A.find(z=>z.id===aid), rs = grouped[k];
+      let val;
+      if (aid === "condition"){
+        const na = rs.find(r=>r.code==="NA");
+        if (na) val = `<span class="chip">not examined</span>`;
+        else {
+          const ab = rs.filter(r=>{ const p=PARAMS.find(q=>q.id===r.p); return p && r.code!==p.norm; });
+          val = ab.length ? ab.map(r=>`<span class="chip">${r.p}: ${r.code}</span>`).join("")
+                          : `<span class="chip">normal</span>`;
+        }
+      } else {
+        const o = as.options.find(z=>z.code===rs[0].code);
+        val = `<b>${rs[0].code}</b> — ${o?o.label:""}`;
+      }
+      return `<tr><td>${as.name}</td><td><b>${cow}</b></td><td>${teat||"—"}</td><td>${val}</td>
+        <td><button class="jump" data-j="${i}">Edit</button></td>
+        <td><button class="del" data-d="${i}">Delete</button></td></tr>`;
+    }).join("") + `</tbody></table>`;
+  }
+  $("rvBody").innerHTML = h;
+  $("rvBody").querySelectorAll("[data-d]").forEach(b=>b.onclick=()=>{
+    const p = keys[+b.dataset.d].split("|");
+    clearUnit(p[0], +p[1], p[2]||null); renderReview();
+  });
+  $("rvBody").querySelectorAll("[data-j]").forEach(b=>b.onclick=()=>{
+    const p = keys[+b.dataset.j].split("|");
+    ai = A.findIndex(z=>z.id===p[0]);
+    if (a().level === "cow") S.start[p[0]] = Math.max(1, +p[1]-2); else S.cow[p[0]] = +p[1];
+    persist(); show("main"); render();
+  });
+}
+
+function csv(sessions){
+  const q = v => `"${String(v==null?"":v).replace(/"/g,'""')}"`;
+  const rows = [["farm","visit_date","observer","herd_size_band","assessment_id","assessment",
+                 "cow_type","cow_seq","teat","variable","code","label","recorded_at"].join(",")];
+  sessions.forEach(s=>{
+    (s.recs||[]).slice().sort((x,y)=>
+      A.findIndex(z=>z.id===x.a)-A.findIndex(z=>z.id===y.a) || x.cow-y.cow ||
+      TEATS.indexOf(x.teat)-TEATS.indexOf(y.teat) ||
+      PARAMS.findIndex(z=>z.id===x.p)-PARAMS.findIndex(z=>z.id===y.p)
+    ).forEach(r=>{
+      const as = A.find(z=>z.id===r.a); if(!as) return;
+      let label = "";
+      if (as.level === "cond"){
+        const p = PARAMS.find(z=>z.id===r.p);
+        label = r.code === "NA" ? "Not examined"
+          : r.code.split("+").map(c=>{ const o=p&&p.opts.find(z=>z.c===c); return o?o.l:(c==="N"?"None":c); }).join(" + ");
+      } else {
+        const o = as.options.find(z=>z.code===r.code); label = o?o.label:"";
+      }
+      rows.push([s.farm, s.date, s.observer, s.herd, as.id, as.name.replace(/—/g,"-"),
+                 as.cowtype||"", r.cow, r.teat||"", r.p, r.code, label,
+                 new Date(r.ts).toISOString()].map(q).join(","));
+    });
+  });
+  return rows.join("\r\n");
+}
+function download(name, text){
+  const b = new Blob(["﻿"+text], {type:"text/csv;charset=utf-8"});
+  const a2 = document.createElement("a");
+  a2.href = URL.createObjectURL(b); a2.download = name;
+  document.body.appendChild(a2); a2.click();
+  setTimeout(()=>{ URL.revokeObjectURL(a2.href); a2.remove(); }, 1500);
+}
+const fname = s => `cowobs_${String(s.farm).replace(/[^\w-]+/g,"_")}_${s.date}.csv`;
+
+$("rvCsv").onclick = ()=>{ if(!S.recs.length) return toast("Nothing to export");
+  download(fname(S), csv([S])); toast("CSV exported to Files"); };
+$("rvCopy").onclick = async ()=>{
+  if(!S.recs.length) return toast("Nothing to copy");
+  const t = csv([S]);
+  try{ await navigator.clipboard.writeText(t); toast("CSV copied to clipboard"); }
+  catch(e){ if(navigator.share){ try{ await navigator.share({title:fname(S), text:t}); return; }catch(_){} }
+    toast("Copy blocked — use Export CSV"); }
+};
+
+/* ══════════════════════════════════════════════════════════════════
+   SETUP
+   ══════════════════════════════════════════════════════════════════ */
+let pickObs = "", pickHerd = "";
+function initSetup(){
+  $("pObs").innerHTML  = OBSERVERS.concat(["Other"]).map(o=>
+    `<button data-o="${o}" class="${pickObs===o?"sel":""}">${o}</button>`).join("");
+  $("pHerd").innerHTML = HERD_BANDS.map(b=>
+    `<button data-h="${b}" class="${pickHerd===b?"sel":""}">${b}</button>`).join("");
+  if (!$("fDate").value) $("fDate").value = new Date().toISOString().slice(0,10);
+  const all = loadAll(), last = all[all.length-1];
+  $("resumeBox").innerHTML = last
+    ? `<div class="resume">Last visit: <b>${last.farm}</b> · ${last.date} · ${(last.recs||[]).length} records
+       <button class="btn ghost" id="resumeBtn">Resume this visit</button></div>` : "";
+  if (last) $("resumeBtn").onclick = ()=> openSession(last);
+}
+$("pObs").addEventListener("click", e=>{ const b=e.target.closest("[data-o]"); if(!b)return;
+  pickObs = b.dataset.o; $("fObsOther").style.display = pickObs==="Other" ? "" : "none"; initSetup(); });
+$("pHerd").addEventListener("click", e=>{ const b=e.target.closest("[data-h]"); if(!b)return;
+  pickHerd = b.dataset.h; initSetup(); });
+
+function openSession(s){
+  S = s; S.recs = S.recs||[]; S.cow = S.cow||{}; S.start = S.start||{};
+  ai = Math.max(0, A.findIndex(x=>x.id===S.last));
+  show("main"); render();
+}
+$("startBtn").onclick = ()=>{
+  const farm = $("fFarm").value.trim();
+  if (!farm) return toast("Enter a farm ID or name");
+  if (!pickObs) return toast("Choose an observer");
+  if (!pickHerd) return toast("Choose the herd size band");
+  const obsName = pickObs === "Other" ? ($("fObsOther").value.trim() || "Other") : pickObs;
+  openSession({ id:"v"+Date.now(), farm, date:$("fDate").value||new Date().toISOString().slice(0,10),
+    observer:obsName, herd:pickHerd, recs:[], cow:{}, start:{}, last:A[0].id });
+  persist();
+};
+$("allDataBtn").onclick = ()=>{
+  const all = loadAll(); if(!all.length) return toast("No saved visits");
+  show("review"); $("rvTitle").textContent = "Saved visits";
+  $("rvBody").innerHTML = `<table><thead><tr><th>Farm</th><th>Date</th><th>Observer</th><th>Records</th><th></th><th></th></tr></thead><tbody>`
+    + all.map((s,i)=>`<tr><td><b>${s.farm}</b></td><td>${s.date}</td><td>${s.observer||""}</td>
+        <td>${(s.recs||[]).length}</td><td><button class="jump" data-o="${i}">Open</button></td>
+        <td><button class="del" data-r="${i}">Delete</button></td></tr>`).join("") + `</tbody></table>`;
+  $("rvBody").querySelectorAll("[data-o]").forEach(b=>b.onclick=()=>{
+    $("rvBack").onclick = ()=>show("main"); openSession(loadAll()[+b.dataset.o]); });
+  $("rvBody").querySelectorAll("[data-r]").forEach(b=>b.onclick=()=>{
+    const l=loadAll(); l.splice(+b.dataset.r,1); saveAll(l); $("allDataBtn").click(); });
+  $("rvBack").onclick = ()=>{ show("setup"); initSetup(); $("rvBack").onclick = ()=>show("main"); };
+  $("rvCsv").onclick  = ()=>{ download("cowobs_all_"+new Date().toISOString().slice(0,10)+".csv", csv(loadAll()));
+    toast("All visits exported"); };
+};
+
+let lastTap = 0;
+document.addEventListener("touchend", e=>{
+  const n = Date.now(); if (n - lastTap < 300) e.preventDefault(); lastTap = n;
+}, {passive:false});
+
+initSetup();
+</script>
+</body>
+</html>

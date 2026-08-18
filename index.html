@@ -363,7 +363,8 @@ const PARAMS = [
       {c:"SE", l:"Severe", s:"extensive"}]},
   {id:"damage",   name:"Cutaneous damage", norm:"N", multi:true, opts:[
       {c:"S",  l:"Suckling"}, {c:"I", l:"Insect"}, {c:"A", l:"Abrasions"},
-      {c:"C",  l:"Cuts"},     {c:"SB", l:"Sunburn"}, {c:"FB", l:"Frostbite"}]}
+      {c:"C",  l:"Cuts"},     {c:"SB", l:"Sunburn"}, {c:"FB", l:"Frostbite"},
+      {c:"P",  l:"Petechiation", s:"vascular damage"}]}
 ];
 
 /* ══════════════════════════════════════════════════════════════════
@@ -731,7 +732,8 @@ const TARGETS = {
   cow_orifice:  {limit:20, text:"trigger > 20% of cows · TN9"},
   cow_hyperk:   {limit:20, text:"trigger > 20% of cows with R or VR · TN9"},
   cow_hyperkvr: {limit:10, text:"trigger > 10% of cows with VR · TN9"},
-  cow_lesion:   {limit:5,  text:"trigger > 5% of cows with open lesions, chaps or cracks · TN9"}
+  cow_lesion:   {limit:5,  text:"trigger > 5% of cows with open lesions, chaps or cracks · TN9"},
+  cow_vascular: {limit:10, text:"trigger > 10% of cows with petechiation · TN9"}
 };
 /* Cow-level flags derived from the captured teat rows. A cow counts once,
    however many of her teats are affected. Reporting only — capture keeps
@@ -743,8 +745,13 @@ const COW_FLAGS = [
   {id:"cow_orifice",  k:"% cows — open orifice",             test:t=>has(t,"orifice",["O"])},
   {id:"cow_hyperk",   k:"% cows — hyperkeratosis (R or VR)", test:t=>has(t,"hyperk",["R","VR"])},
   {id:"cow_hyperkvr", k:"% cows — hyperkeratosis (VR)",      test:t=>has(t,"hyperk",["VR"])},
+  /* TN9 counts petechiation as vascular damage with its own trigger, so it is
+     kept out of the open-lesion flag rather than lumped in with it. */
   {id:"cow_lesion",   k:"% cows — open lesions, chaps or cracks",
-     test:t => has(t,"chaps",["M","SE"]) || (t.damage||"N") !== "N"}
+     test:t => has(t,"chaps",["M","SE"]) ||
+               (t.damage||"N").split("+").some(c => c!=="N" && c!=="P")},
+  {id:"cow_vascular", k:"% cows — petechiation (vascular damage)",
+     test:t => has(t,"damage",["P"])}
 ];
 function has(t,p,vals){ return vals.some(v => (t[p]||"N").split("+").includes(v)); }
 
@@ -792,7 +799,9 @@ function summary(){
     add(detail,"Hyperkeratosis (very rough)", ex.filter(t=>has(t,"hyperk",["VR"])).length, n, "teats");
     add(detail,"Skin rough (friction test)",  ex.filter(t=>has(t,"skin",["SR","VR"])).length, n, "teats");
     add(detail,"Chaps (minor or severe)",     ex.filter(t=>has(t,"chaps",["M","SE"])).length, n, "teats");
-    add(detail,"Cutaneous damage",            ex.filter(t=>(t.damage||"N")!=="N").length, n, "teats");
+    add(detail,"Cutaneous damage (excl. petechiation)",
+        ex.filter(t=>(t.damage||"N").split("+").some(c=>c!=="N"&&c!=="P")).length, n, "teats");
+    add(detail,"Petechiation",                ex.filter(t=>has(t,"damage",["P"])).length, n, "teats");
     add(detail,"Red or red-blue",             ex.filter(t=>has(t,"colour",["R"])).length, n, "teats");
     add(detail,"Swollen at the base",         ex.filter(t=>has(t,"swelling",["S"])).length, n, "teats");
     add(detail,"Firm teat end",               ex.filter(t=>has(t,"firmness",["F"])).length, n, "teats");
@@ -842,8 +851,8 @@ function renderReview(){
       Milk-out: Poor is defined in Countdown Technote 6 (5 or more easy strips, &gt;100 mL per quarter);
       the &gt;20% of quarters figure is printed in the DairyNZ SmartSAMM kit, with no Australian equivalent.
       Udder hygiene: TN9 §9.3, citing Schreiner &amp; Ruegg (2003). Teat end hygiene (swab) has no published
-      benchmark by design (Cook &amp; Reinemann). Not captured by this app: vascular damage / petechiation,
-      which carries its own TN9 trigger of &gt;10% of cows.</div>`;
+      benchmark by design (Cook &amp; Reinemann). Petechiation is recorded under cutaneous damage but counted
+      separately, as TN9 treats it as vascular damage with its own trigger rather than an open lesion.</div>`;
   }
 
   h += `<h4 class="sec">Records (${S.recs.length})</h4>`;

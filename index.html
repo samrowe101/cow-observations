@@ -99,17 +99,15 @@ main{flex:1 1 auto;overflow:hidden;padding:9px 11px;display:flex;flex-direction:
 
 /* condition quadrants */
 .opt .code.sm{font-size:14.5px;line-height:1.2}
+.opt .code.xs{font-size:12px;line-height:1.15}
 .quad.cond.abn{border-color:#7a3b33;background:#241614}
-.quad.cond.na{border-color:var(--line);background:var(--panel)}
-.cflags{flex:1 1 auto;display:flex;flex-wrap:wrap;gap:5px;align-content:center;justify-content:center;
-  padding:3px 0 7px;overflow:hidden;min-height:0}
-.cflags span{background:var(--s4);color:#fff;border-radius:7px;padding:3px 8px;font-size:11.5px;font-weight:700}
-.cflags .st{font-size:12px;font-weight:700;color:var(--dim);letter-spacing:.5px}
-.quad.cond .opt.big{flex:0 0 auto;min-height:58px}
-.quad.cond .opt.big .code{font-size:21px;letter-spacing:1px}
-.quad.cond .opts.hk{flex:0 0 auto;height:56px;margin-top:6px}
-.quad.cond .opt.det{flex:0 0 auto;min-height:44px;margin-top:6px}
-.quad.cond .cflags{padding:5px 0 0}
+.quad.cond.na{border-color:var(--line);background:var(--panel);opacity:.72}
+.quad.cond .opt.big{flex:0 0 auto;min-height:54px;border-width:3px}
+.quad.cond .opt.big .code{font-size:21px;letter-spacing:1.5px}
+.quad.cond .opts.tog{flex:1 1 0;min-height:36px;margin-top:5px}
+.quad.cond .opt.det{flex:0 0 auto;min-height:40px;margin-top:5px}
+.quad.cond .opt{min-height:0}
+.quad.cond .opt.det .lab{font-size:9.5px}
 
 /* batch list */
 .batch{flex:1 1 auto;overflow-y:auto;-webkit-overflow-scrolling:touch;min-height:0}
@@ -476,46 +474,56 @@ function renderGrid(){
   }).join("");
 }
 
+/* Findings that have their own button on the teat tile. Everything else
+   (skin dryness, chaps, cutaneous damage) lives behind 'Other abnormalities'. */
+const TILE = [
+  [{p:"hyperk",   c:"R",  label:"Rough",         sub:"hyperkeratosis 1–2"},
+   {p:"hyperk",   c:"VR", label:"Very rough",    sub:"score ≥3"}],
+  [{p:"orifice",  c:"O",  label:"Open"},
+   {p:"firmness", c:"F",  label:"Firm"}],
+  [{p:"swelling", c:"S",  label:"Swollen base"},
+   {p:"colour",   c:"R",  label:"Red or blue skin"}]
+];
+const TILE_PARAMS = ["hyperk","orifice","firmness","swelling","colour"];
+
 function condState(cow, teat){
   const seed = rec("condition",cow,teat,"colour");
-  if (!seed) return {status:"blank", flags:[], hyperk:"N", other:false};
-  if (seed.code === "NA") return {status:"na", flags:[], hyperk:"N", other:false};
-  const flags = []; let other = false;
+  if (!seed)            return {blank:true, na:false, normal:false, vals:{}, other:[]};
+  if (seed.code==="NA") return {blank:false, na:true,  normal:false, vals:{}, other:[]};
+  const vals = {}, other = [];
   PARAMS.forEach(p=>{
-    const r = rec("condition",cow,teat,p.id);
-    if (!r || r.code === p.norm) return;
-    if (p.id !== "hyperk") other = true;
-    r.code.split("+").forEach(c => flags.push(p.id==="damage" ? c : p.id.slice(0,4)+":"+c));
+    const code = (rec("condition",cow,teat,p.id)||{}).code || p.norm;
+    vals[p.id] = code;
+    if (code !== p.norm && TILE_PARAMS.indexOf(p.id) < 0)
+      code.split("+").forEach(c => other.push(p.id==="damage" ? c : p.id.slice(0,4)+":"+c));
   });
-  const hyperk = (rec("condition",cow,teat,"hyperk")||{}).code || "N";
-  const status = other ? "abn"
-               : hyperk !== "N" ? "hyperk"
-               : "normal";
-  return {status, flags, hyperk, other};
+  const normal = PARAMS.every(p => vals[p.id] === p.norm);
+  return {blank:false, na:false, normal, vals, other};
 }
 function renderCond(){
   const cow = cowOf("condition");
   $("area").className = "grid";
   $("area").innerHTML = order().map(t=>{
     const st = condState(cow,t);
-    const cls = st.status==="abn" ? "abn" : st.status==="na" ? "na" : "";
-    const mid = st.status==="na"    ? `<span class="st">NOT EXAMINED</span>`
-              : st.flags.length     ? st.flags.map(f=>`<span>${f}</span>`).join("")
-              : st.status==="blank" ? `<span class="st">NOT SCORED</span>` : "";
-    const plain = !st.other;                      // hyperk buttons show as chosen only when nothing else is flagged
-    return `<div class="quad cond ${cls} ${st.status!=="blank"?"done":""}" data-teat="${t}">
+    const anyAbn = !st.blank && !st.na && !st.normal;
+    const rows = TILE.map((rw,i)=>
+      `<div class="opts n2 tog">` + rw.map(b=>{
+        const on = st.vals[b.p] === b.c;
+        return `<button class="opt ${on?"sel c4":""}" data-act="param" data-p="${b.p}" data-c="${b.c}">
+          <span class="code ${i===0?"sm":"xs"}">${b.label}</span>
+          ${b.sub?`<span class="lab">${b.sub}</span>`:""}</button>`;
+      }).join("") + `</div>`).join("");
+    const otherLab = st.na ? "not counted in the sample"
+                   : st.other.length ? st.other.join(", ")
+                   : "dryness · chaps · damage";
+    return `<div class="quad cond ${anyAbn?"abn":""} ${st.na?"na":""} ${!st.blank?"done":""}" data-teat="${t}">
       <div class="qname">${TEAT_LABEL[t]}</div>
-      <button class="opt big ${st.status==="normal"?"sel c1":""}" data-act="normal">
+      <button class="opt big ${st.normal?"sel c1":""}" data-act="normal">
         <span class="code">NORMAL</span></button>
-      <div class="opts n2 hk">
-        <button class="opt ${plain&&st.hyperk==="R"?"sel c3":""}" data-act="hyperk-R">
-          <span class="code sm">Hyperkeratosis</span><span class="lab">rough · score 1–2</span></button>
-        <button class="opt ${plain&&st.hyperk==="VR"?"sel c4":""}" data-act="hyperk-VR">
-          <span class="code sm">Very rough</span><span class="lab">score ≥3</span></button>
-      </div>
-      <div class="cflags">${mid}</div>
-      <button class="opt det ${st.other||st.status==="na"?"sel c4":""}" data-act="details">
-        <span class="code sm">Abnormal — add details</span></button>
+      ${rows}
+      <button class="opt det ${st.other.length||st.na?"sel c4":""}" data-act="details">
+        <span class="code xs">${st.na?"NOT EXAMINED":"Other abnormalities"}</span>
+        <span class="lab">${otherLab}</span></button>
     </div>`;
   }).join("");
 }
@@ -528,15 +536,16 @@ function setCondNormal(cow, teat){
   PARAMS.forEach(p => S.recs.push({a:"condition", cow, teat, p:p.id, code:p.norm, ts:Date.now()}));
   persist();
 }
-/* Set hyperkeratosis without disturbing anything already flagged on this teat. */
-function setCondHyperk(cow, teat, code){
+/* Toggle one finding from the teat tile, without disturbing anything else
+   already recorded on that teat. */
+function setCondParam(cow, teat, pid, code){
   seedCond(cow, teat);
-  const r = rec("condition",cow,teat,"hyperk");
-  r.code = (r.code === code) ? "N" : code;        // tap again to clear back to normal
-  r.ts = Date.now();
   if (rec("condition",cow,teat,"colour").code === "NA")   // was 'not examined' — bring it back in
     PARAMS.forEach(p=>{ const x=rec("condition",cow,teat,p.id);
                         if (x && x.code==="NA") x.code = p.norm; });
+  const p = PARAMS.find(x=>x.id===pid), r = rec("condition",cow,teat,pid);
+  r.code = (r.code === code) ? p.norm : code;            // tap again to clear
+  r.ts = Date.now();
   persist();
 }
 
@@ -663,9 +672,9 @@ function handleArea(e){
     const b = e.target.closest("button[data-act]"); if(!b) return;
     const cow = cowOf("condition"), teat = b.closest(".quad").dataset.teat;
     const act = b.dataset.act;
-    if (act === "normal")        setCondNormal(cow, teat);
-    else if (act === "details")  { openPanel(teat); tick(); return; }
-    else                         setCondHyperk(cow, teat, act.split("-")[1]);
+    if (act === "normal")       setCondNormal(cow, teat);
+    else if (act === "details") { openPanel(teat); tick(); return; }
+    else                        setCondParam(cow, teat, b.dataset.p, b.dataset.c);
     renderCond(); renderNav(); renderFoot(); tick(); return;
   }
   const b = e.target.closest(".opt"); if(!b) return;

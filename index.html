@@ -160,6 +160,10 @@ h4.sec:first-child{margin-top:0}
 .tile .v.warn{color:var(--s3)} .tile .v.bad{color:var(--s4)} .tile .v.good{color:var(--s1)}
 .tile .k{font-size:10.5px;color:var(--dim);text-transform:uppercase;letter-spacing:.7px;margin-top:2px;line-height:1.3}
 .tile .d{font-size:11px;color:var(--dim);margin-top:3px}
+.tile .tg{font-size:10.5px;color:var(--dim);margin-top:5px;padding-top:5px;border-top:1px solid var(--line2);line-height:1.3}
+.tile .tg.good{color:#6fd39a} .tile .tg.bad{color:#f08a7e}
+.src{font-size:10.5px;color:var(--dim);line-height:1.5;margin-top:12px;padding:10px 12px;
+  background:var(--panel);border:1px solid var(--line);border-radius:10px}
 table{width:100%;border-collapse:collapse;font-size:13.5px}
 th{text-align:left;font-size:10.5px;text-transform:uppercase;letter-spacing:.8px;color:var(--dim);padding:7px;border-bottom:1px solid var(--line)}
 td{padding:9px 7px;border-bottom:1px solid #253140}
@@ -705,54 +709,112 @@ $("rvBack").onclick    = ()=> show("main");
 function pct(n,d){ return d ? (100*n/d) : null; }
 function fmt(v,dp){ return v===null||v===undefined ? "—" : v.toFixed(dp===undefined?1:dp)+"%"; }
 
+/* ── Trigger levels ─────────────────────────────────────────────────────
+   Countdown Technote 9, "Manage teat sores and cracks", July 2018, p13–14.
+   Technote 9 is explicit that teat observations should be interpreted at
+   COW level, not quarter level: "the score recorded for the most severely
+   affected teat becomes the score for that cow". Each finding carries its
+   own trigger — there is no combined score. Quarter-level percentages are
+   still shown in the breakdown, without triggers.
+   limit = null means no published benchmark; the figure is shown with no
+   pass/fail judgement.                                                    */
+const TARGETS = {
+  milkout:    {limit:20, text:"trigger > 20% of quarters · SmartSAMM kit; Poor defined in Countdown TN6"},
+  teat_hyg:   {limit:null, text:"no published benchmark — to be set after the pilot"},
+  dip:        {limit:null, text:"no published trigger"},
+  udder_lact: {limit:20, text:"trigger > 20% of cows scoring 3 or 4 · TN9 §9.3 (Schreiner & Ruegg 2003)"},
+  udder_dry:  {limit:20, text:"same chart applied to springers · TN9 §9.3"},
+  cow_any:      {limit:null, text:"composite — no single published trigger"},
+  cow_colour:   {limit:20, text:"trigger > 20% of cows · TN9"},
+  cow_swelling: {limit:20, text:"trigger > 20% of cows · TN9"},
+  cow_firmness: {limit:20, text:"trigger > 20% of cows · TN9"},
+  cow_orifice:  {limit:20, text:"trigger > 20% of cows · TN9"},
+  cow_hyperk:   {limit:20, text:"trigger > 20% of cows with R or VR · TN9"},
+  cow_hyperkvr: {limit:10, text:"trigger > 10% of cows with VR · TN9"},
+  cow_lesion:   {limit:5,  text:"trigger > 5% of cows with open lesions, chaps or cracks · TN9"}
+};
+/* Cow-level flags derived from the captured teat rows. A cow counts once,
+   however many of her teats are affected. Reporting only — capture keeps
+   every parameter on every teat. */
+const COW_FLAGS = [
+  {id:"cow_colour",   k:"% cows — red or blue teats",        test:t=>has(t,"colour",["R"])},
+  {id:"cow_swelling", k:"% cows — swelling at teat base",    test:t=>has(t,"swelling",["S"])},
+  {id:"cow_firmness", k:"% cows — firm teat ends",           test:t=>has(t,"firmness",["F"])},
+  {id:"cow_orifice",  k:"% cows — open orifice",             test:t=>has(t,"orifice",["O"])},
+  {id:"cow_hyperk",   k:"% cows — hyperkeratosis (R or VR)", test:t=>has(t,"hyperk",["R","VR"])},
+  {id:"cow_hyperkvr", k:"% cows — hyperkeratosis (VR)",      test:t=>has(t,"hyperk",["VR"])},
+  {id:"cow_lesion",   k:"% cows — open lesions, chaps or cracks",
+     test:t => has(t,"chaps",["M","SE"]) || (t.damage||"N") !== "N"}
+];
+function has(t,p,vals){ return vals.some(v => (t[p]||"N").split("+").includes(v)); }
+
 /* Everything here is a percentage abnormal — no mean scores. */
 function summary(){
   const main = [], detail = [];
-  const add = (list,k,num,den,unit,tone) => {
+  const add = (list,k,num,den,unit,key) => {
     if (!den) return;
-    const p = pct(num,den);
+    const p = pct(num,den), t = TARGETS[key];
     list.push({k, v:fmt(p), d:`${num} of ${den} ${unit}`,
-               tone: tone===false ? null : (p>=20 ? "bad" : p>0 ? "warn" : "good")});
+               t: t ? t.text : "",
+               tone: !t || t.limit===null ? null : (p <= t.limit ? "good" : "bad")});
   };
 
   const mo = recsOf("milkout");
-  add(main,"% quarters milked out poorly", mo.filter(r=>r.code==="P").length, mo.length, "quarters");
+  add(main,"% quarters milked out poorly", mo.filter(r=>r.code==="P").length, mo.length, "quarters", "milkout");
 
   const th = recsOf("teat_hyg");
-  add(main,"% dirty teats (score 3 or 4)", th.filter(r=>+r.code>=3).length, th.length, "teats");
+  add(main,"% dirty teats (score 3 or 4)", th.filter(r=>+r.code>=3).length, th.length, "teats", "teat_hyg");
 
   const dp = recsOf("dip");
-  add(main,"% teats with a dry patch (dip missed)", dp.filter(r=>r.code==="N").length, dp.length, "teats");
+  add(main,"% teats with a dry patch (dip missed)", dp.filter(r=>r.code==="N").length, dp.length, "teats", "dip");
 
   const ul = recsOf("udder_lact");
-  add(main,"% dirty cows — lactating (score 3 or 4)", ul.filter(r=>+r.code>=3).length, ul.length, "cows");
+  add(main,"% dirty cows — lactating (score 3 or 4)", ul.filter(r=>+r.code>=3).length, ul.length, "cows", "udder_lact");
   const ud = recsOf("udder_dry");
-  add(main,"% dirty cows — dry (score 3 or 4)", ud.filter(r=>+r.code>=3).length, ud.length, "cows");
+  add(main,"% dirty cows — dry (score 3 or 4)", ud.filter(r=>+r.code>=3).length, ud.length, "cows", "udder_dry");
 
-  // teat condition, per examined teat
-  const teats = {};
-  recsOf("condition").forEach(r=>{ (teats[r.cow+"|"+r.teat] = teats[r.cow+"|"+r.teat] || {})[r.p] = r.code; });
+  // teat condition — cow level for the triggers, quarter level in the breakdown
+  const teats = condTeats(S.recs);
   const ex = Object.values(teats).filter(t => t.colour !== "NA");
   const n = ex.length;
   if (n){
-    const has  = (t,p,vals) => vals.some(v => (t[p]||"N").split("+").includes(v));
-    const abn  = t => PARAMS.some(p => (t[p.id]||p.norm) !== p.norm);
-    const hyp  = t => has(t,"hyperk",["R","VR"]);
-    const other= t => PARAMS.some(p => p.id!=="hyperk" && (t[p.id]||p.norm) !== p.norm);
+    const cows = condCows(teats);
+    const nc = Object.keys(cows).length;
+    const norm = pid => (PARAMS.find(p=>p.id===pid)||{}).norm;
 
-    add(main,"% teats abnormal (any finding)", ex.filter(abn).length, n, "teats");
-    add(main,"% teats with hyperkeratosis",     ex.filter(hyp).length, n, "teats");
-    add(main,"% teats with other lesions",      ex.filter(other).length, n, "teats");
+    add(main,"% cows with any teat finding",
+        Object.values(cows).filter(ts=>ts.some(t=>PARAMS.some(p=>(t[p.id]||p.norm)!==p.norm))).length,
+        nc, "cows", "cow_any");
+    COW_FLAGS.forEach(f=>
+      add(main, f.k, Object.values(cows).filter(ts=>ts.some(f.test)).length, nc, "cows", f.id));
 
-    add(detail,"Red or red-blue",        ex.filter(t=>has(t,"colour",["R"])).length, n, "teats");
-    add(detail,"Skin rough (friction)",  ex.filter(t=>has(t,"skin",["SR","VR"])).length, n, "teats");
-    add(detail,"Chaps (minor or severe)",ex.filter(t=>has(t,"chaps",["M","SE"])).length, n, "teats");
-    add(detail,"Cutaneous damage",       ex.filter(t=>(t.damage||"N")!=="N").length, n, "teats");
-    add(detail,"Swollen at the base",    ex.filter(t=>has(t,"swelling",["S"])).length, n, "teats");
-    add(detail,"Firm teat end",          ex.filter(t=>has(t,"firmness",["F"])).length, n, "teats");
-    add(detail,"Open orifice",           ex.filter(t=>has(t,"orifice",["O"])).length, n, "teats");
+    add(detail,"Hyperkeratosis (rough or very rough)", ex.filter(t=>has(t,"hyperk",["R","VR"])).length, n, "teats");
+    add(detail,"Hyperkeratosis (very rough)", ex.filter(t=>has(t,"hyperk",["VR"])).length, n, "teats");
+    add(detail,"Skin rough (friction test)",  ex.filter(t=>has(t,"skin",["SR","VR"])).length, n, "teats");
+    add(detail,"Chaps (minor or severe)",     ex.filter(t=>has(t,"chaps",["M","SE"])).length, n, "teats");
+    add(detail,"Cutaneous damage",            ex.filter(t=>(t.damage||"N")!=="N").length, n, "teats");
+    add(detail,"Red or red-blue",             ex.filter(t=>has(t,"colour",["R"])).length, n, "teats");
+    add(detail,"Swollen at the base",         ex.filter(t=>has(t,"swelling",["S"])).length, n, "teats");
+    add(detail,"Firm teat end",               ex.filter(t=>has(t,"firmness",["F"])).length, n, "teats");
+    add(detail,"Open orifice",                ex.filter(t=>has(t,"orifice",["O"])).length, n, "teats");
   }
   return {main, detail};
+}
+/* {cow|teat: {param:code}} for every teat scored for condition */
+function condTeats(recs){
+  const t = {};
+  (recs||[]).filter(r=>r.a==="condition" && !r._d)
+    .forEach(r=>{ (t[r.cow+"|"+r.teat] = t[r.cow+"|"+r.teat] || {})[r.p] = r.code; });
+  return t;
+}
+/* {cow: [teat,...]} for cows with at least one examined teat */
+function condCows(teats){
+  const c = {};
+  Object.keys(teats).forEach(k=>{
+    const t = teats[k]; if (t.colour === "NA") return;
+    (c[k.split("|")[0]] = c[k.split("|")[0]] || []).push(t);
+  });
+  return c;
 }
 
 function renderReview(){
@@ -766,12 +828,22 @@ function renderReview(){
 
   const sm = summary();
   const tiles = list => list.map(s=>`<div class="tile"><div class="v ${s.tone||""}">${s.v}</div>
-      <div class="k">${s.k}</div>${s.d?`<div class="d">${s.d}</div>`:""}</div>`).join("");
+      <div class="k">${s.k}</div>${s.d?`<div class="d">${s.d}</div>`:""}
+      ${s.t?`<div class="tg ${s.tone||""}">${s.t}</div>`:""}</div>`).join("");
   if (sm.main.length){
     h += `<h4 class="sec">Farm-level outcomes (live)</h4><div class="tiles">${tiles(sm.main)}</div>`;
     if (sm.detail.length)
       h += `<button class="hbtn" id="lesToggle" style="margin-top:10px">Show lesion breakdown</button>
             <div id="lesBox" style="display:none;margin-top:10px"><div class="tiles">${tiles(sm.detail)}</div></div>`;
+    h += `<div class="src"><b>Trigger levels: Countdown Technote 9, July 2018, p13–14 and §9.3.</b>
+      Technote 9 interprets teat findings at cow level, not quarter level — "the score recorded for the
+      most severely affected teat becomes the score for that cow" — so each cow counts once however many
+      of her teats are affected. Quarter-level percentages are shown in the breakdown without triggers.
+      Milk-out: Poor is defined in Countdown Technote 6 (5 or more easy strips, &gt;100 mL per quarter);
+      the &gt;20% of quarters figure is printed in the DairyNZ SmartSAMM kit, with no Australian equivalent.
+      Udder hygiene: TN9 §9.3, citing Schreiner &amp; Ruegg (2003). Teat end hygiene (swab) has no published
+      benchmark by design (Cook &amp; Reinemann). Not captured by this app: vascular damage / petechiation,
+      which carries its own TN9 trigger of &gt;10% of cows.</div>`;
   }
 
   h += `<h4 class="sec">Records (${S.recs.length})</h4>`;
@@ -840,14 +912,30 @@ function csv(sessions){
                  "assessment_id","assessment","cow_type","cow_seq","cow_uid","teat",
                  "variable","code","label","recorded_at"].join(",")];
   sessions.forEach(s=>{
-    (s.recs||[]).slice().sort((x,y)=>
+    /* Cow-level flags for the Technote 9 triggers, derived at export rather
+       than captured — the eight parameters are still recorded and exported
+       for every teat above. Technote 9 interprets teat findings per cow, and
+       a cow with two affected teats must count once; a row-wise COUNTIFS in
+       the merge workbook cannot do that, so it is resolved here. */
+    const cows = condCows(condTeats(s.recs));
+    const derived = [];
+    Object.keys(cows).forEach(cowKey=>{
+      const ts = cows[cowKey], cow = +cowKey;
+      COW_FLAGS.forEach(f => derived.push({a:"condition", cow, teat:null, p:f.id,
+        code: ts.some(f.test) ? "Y" : "N", ts:Date.now(), _d:1}));
+    });
+    (s.recs||[]).concat(derived).slice().sort((x,y)=>
       A.findIndex(z=>z.id===x.a)-A.findIndex(z=>z.id===y.a) || x.cow-y.cow ||
       TEATS.indexOf(x.teat)-TEATS.indexOf(y.teat) ||
       PARAMS.findIndex(z=>z.id===x.p)-PARAMS.findIndex(z=>z.id===y.p)
     ).forEach(r=>{
       const as = A.find(z=>z.id===r.a); if(!as) return;
       let label = "";
-      if (as.level === "cond"){
+      if (r._d){
+        const f = COW_FLAGS.find(x=>x.id===r.p);
+        label = "Cow-level flag: " + (f?f.k.replace(/^% cows — /,""):r.p)
+              + (r.code==="Y" ? " — present (derived)" : " — absent (derived)");
+      } else if (as.level === "cond"){
         const p = PARAMS.find(z=>z.id===r.p);
         label = r.code === "NA" ? "Not examined"
           : r.code.split("+").map(c=>{ const o=p&&p.opts.find(z=>z.c===c); return o?o.l:(c==="N"?"None":c); }).join(" + ");

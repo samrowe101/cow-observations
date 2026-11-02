@@ -343,7 +343,7 @@ td{padding:9px 7px;border-bottom:1px solid #253140}
    Measurements sheet. Edit here if a protocol changes.
    ══════════════════════════════════════════════════════════════════ */
 
-const HERD_BANDS = ["100","200","400","600","1000+"];
+const HERD_BANDS = ["100","150","200","400","600","1000+"];
 
 const OBSERVERS = ["Dini H","Luke I","Francisco S","Nicholas G","Paige A","Sam R"];
 
@@ -360,7 +360,7 @@ const A = [
     id:"teat_hyg", tab:"Teat<br>hygiene", name:"Teat end hygiene (swab test)",
     level:"teat", unit:"teats", split:true,
     varname:"teat_end_dirt", dipvar:"teat_dip_on_swab",
-    target:[68,74,77,79,80],
+    target:[68,72,74,77,79,80],
     hint:"After the farm's normal prep. Score dirt first, then flag teat dip separately if it is on the swab.",
     options:[
       {code:"C",  main:"Clean",            label:"Clean",            c:1},
@@ -372,7 +372,7 @@ const A = [
   {
     id:"milkout", tab:"Milk-out", name:"Completeness of milking (Easy Strips)",
     level:"teat", unit:"quarters", varname:"milking_complete",
-    target:[68,74,77,79,80],
+    target:[68,72,74,77,79,80],
     hint:"Count hard strips: 2 hard → GOOD. Reach 6 strips without 2 hard → POOR.",
     options:[
       {code:"G", main:"GOOD", sub:"2 hard strips",                 label:"Good", c:1},
@@ -382,14 +382,14 @@ const A = [
     {
     id:"condition", tab:"Teat<br>condition", name:"Teat end & teat condition",
     level:"cond", unit:"teats",
-    target:[103,119,128,131,134],
+    target:[103,113,119,128,131,134],
     hint:"Within 30–60 s of cups off, under a torch. Tap NORMAL, or ABNORMAL to record the details.",
     options:[]
   },
   {
     id:"dip", tab:"Dip<br>coverage", name:"Teat dip coverage (paper test)",
     level:"teat", unit:"teats", varname:"teat_barrel_disinfectant_covered",
-    target:[32,34,34,35,35],
+    target:[32,33,34,34,35,35],
     hint:"Straight after dipping. Wrap a dry towel round the full circumference of the barrel.",
     options:[
       {code:"Y", main:"Covered",           sub:"disinfectant right round the towel", label:"Covered",           c:1},
@@ -399,7 +399,7 @@ const A = [
   {
     id:"udder_lact", tab:"Udder<br>lact", name:"Udder hygiene — lactating cows",
     level:"cow", unit:"cows", varname:"udder_hygiene", cowtype:"lactating",
-    target:[39,48,54,56,58],
+    target:[39,44,48,54,56,58],
     hint:"In the bail / on the platform, every second cow. One score per cow.",
     options:[
       {code:"1", label:"No dirt or manure",  c:1},
@@ -411,7 +411,7 @@ const A = [
   {
     id:"udder_dry", tab:"Udder<br>dry", name:"Udder hygiene — dry cows",
     level:"cow", unit:"cows", varname:"udder_hygiene", cowtype:"dry",
-    target:[26,30,32,33,34],
+    target:[26,29,30,32,33,34],
     hint:"Springer paddock, during the environment walk. One score per cow. Capped at 40 cows.",
     options:[
       {code:"1", label:"No dirt or manure",  c:1},

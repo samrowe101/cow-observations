@@ -45,8 +45,22 @@ input:focus{outline:none;border-color:var(--accent)}
   padding:17px;border-radius:12px;margin-top:22px;text-align:center}
 .btn:active{background:var(--accent-dk)}
 .btn.ghost{background:var(--panel2);border:1px solid var(--line);color:var(--txt);margin-top:10px;font-weight:600;font-size:16px}
-.resume{background:#1c2c3a;border:1px solid var(--accent-dk);border-radius:12px;padding:14px;font-size:14px;margin-top:16px}
-.resume b{color:#7bc0fb}
+/* home menu */
+.menu{display:block;width:100%;text-align:left;background:var(--panel2);border:1px solid var(--line);
+  border-radius:14px;padding:18px 20px;margin-top:14px}
+.menu:active{background:var(--tap)}
+.menu .t{display:block;font-size:19px;font-weight:700}
+.menu .s{display:block;font-size:13px;color:var(--dim);margin-top:4px;line-height:1.4}
+.menu.practice{border-color:var(--s3);border-style:dashed}
+.menu.practice .t{color:var(--s3)}
+.menu:disabled{opacity:.45}
+
+/* practice banner */
+#pracBar{display:none;align-items:center;gap:12px;background:var(--s3);color:#2a1c00;
+  font-size:13px;font-weight:800;letter-spacing:.6px;padding:7px 12px;flex:0 0 auto}
+#pracBar.on{display:flex}
+#pracBar button{margin-left:auto;background:rgba(0,0,0,.22);color:#2a1c00;border-radius:8px;
+  padding:6px 12px;font-size:12px;font-weight:700}
 
 /* ---------- HEADER ---------- */
 header{display:flex;align-items:center;gap:9px;padding:7px 11px;background:var(--panel);
@@ -212,13 +226,42 @@ td{padding:9px 7px;border-bottom:1px solid #253140}
 </head>
 <body>
 
-<!-- ═══════════ SETUP ═══════════ -->
-<section id="setup" class="screen on">
+<!-- ═══════════ HOME ═══════════ -->
+<section id="home" class="screen on">
  <div class="wrap">
   <div class="card">
     <h1>Cow observations</h1>
-    <div class="sub">Dairy UP 2.0 &middot; Mastitis &middot; Stream 1.2 farm visit</div>
-    <div id="resumeBox"></div>
+    <div class="sub">Dairy UP 2.0 &middot; Mastitis &middot; Stream 1.2</div>
+    <button class="menu practice" id="mPractice">
+      <span class="t">Practice</span>
+      <span class="s">Try the app out. Nothing is saved and no data is recorded.</span></button>
+    <button class="menu" id="mNew">
+      <span class="t">Start a new visit</span>
+      <span class="s">Enter the farm, date, observer and herd size.</span></button>
+    <button class="menu" id="mResume">
+      <span class="t">Resume a visit</span>
+      <span class="s" id="mResumeSub">Carry on with a visit already on this iPad.</span></button>
+  </div>
+ </div>
+</section>
+
+<!-- ═══════════ RESUME ═══════════ -->
+<section id="resume" class="screen">
+  <div class="rvhead">
+    <button class="hbtn" id="rsBack">&#8592;</button>
+    <h2>Visits saved on this iPad</h2>
+    <button class="hbtn" id="rsCsv">Export all</button>
+  </div>
+  <div class="rvbody" id="rsBody"></div>
+</section>
+
+<!-- ═══════════ SETUP ═══════════ -->
+<section id="setup" class="screen">
+ <div class="wrap">
+  <div class="card">
+    <button class="hbtn" id="suBack" style="margin-bottom:14px">&#8592; Back</button>
+    <h1>New farm visit</h1>
+    <div class="sub">Dairy UP 2.0 &middot; Mastitis &middot; Stream 1.2</div>
     <label for="fFarm">Farm ID / name</label>
     <input type="text" id="fFarm" autocomplete="off" autocapitalize="words" placeholder="Farm ID or name">
     <label for="fDate">Visit date</label>
@@ -229,17 +272,17 @@ td{padding:9px 7px;border-bottom:1px solid #253140}
     <label>Herd size (sets the sample targets)</label>
     <div class="pick" id="pHerd"></div>
     <button class="btn" id="startBtn">Start farm visit</button>
-    <button class="btn ghost" id="allDataBtn">Saved visits &amp; export</button>
   </div>
  </div>
 </section>
 
 <!-- ═══════════ MAIN ═══════════ -->
 <section id="main" class="screen">
+  <div id="pracBar">PRACTICE — nothing is being saved
+    <button id="pracExit">Leave practice</button></div>
   <header>
     <button class="hbtn" id="homeBtn">&#9776;</button>
     <div class="meta"><b id="mFarm">—</b><span id="mDate">—</span></div>
-    <button class="hbtn" id="mirrorBtn">&#8646;</button>
     <div class="cowbox" id="cowBox"><div class="n" id="mCow">1</div><div class="l" id="mCowLbl">Cow</div></div>
     <button class="hbtn" id="guideBtn" title="How to do this assessment">?</button>
     <button class="hbtn" id="reviewBtn">Review</button>
@@ -330,10 +373,10 @@ const A = [
     id:"milkout", tab:"Milk-out", name:"Completeness of milking (Easy Strips)",
     level:"teat", unit:"quarters", varname:"milking_complete",
     target:[68,74,77,79,80],
-    hint:"Stop at 2 hard strips → GOOD, or 5 easy strips → POOR. Otherwise 5+ easy of 6 = POOR.",
+    hint:"Count hard strips: 2 hard → GOOD. Reach 6 strips without 2 hard → POOR.",
     options:[
-      {code:"G", main:"GOOD", sub:"2 hard strips reached, or ≤4 easy of 6", label:"Good", c:1},
-      {code:"P", main:"POOR", sub:"5 easy strips reached, or 5–6 easy of 6", label:"Poor", c:4}
+      {code:"G", main:"GOOD", sub:"2 hard strips",                 label:"Good", c:1},
+      {code:"P", main:"POOR", sub:"6 strips, fewer than 2 hard",   label:"Poor", c:4}
     ]
   },
     {
@@ -503,12 +546,13 @@ const GUIDES = {
       "Four fingers around the teat, thumb across the top to seal, close downward into a fist.",
       "<b>One strip per second</b> — count 'one-hippo, two-hippo'.",
       "A strip is <b>easy</b> only if all three are true: unbroken jet, clear direction, audible sound.",
-      "Otherwise it is a hard strip."])}
-    <h5>Stop as soon as either happens</h5>
-    <div class="gnote"><b>2 hard strips → GOOD.</b> At most 4 of 6 can now be easy, already below
-      the poor threshold.<br><br>
-      <b>5 easy strips → POOR.</b> Already at the threshold whatever the sixth strip does.<br><br>
-      If neither triggers, stop after the 6th strip: 0–4 easy = GOOD, 5–6 easy = POOR.</div>`
+      "Otherwise it is a <b>hard</b> strip.",
+      "<b>Count the hard strips.</b> Stop as soon as either rule below applies."])}
+    <h5>Stop as soon as either applies</h5>
+    ${defs([["2 hard strips","<b>GOOD.</b> At most 4 of the 6 could now be easy — already below the poor threshold. Stop there, however few strips you have done."],
+            ["6 strips, fewer than 2 hard","<b>POOR.</b> At least 5 of the 6 were easy — at or above the poor threshold."]])}
+    <div class="gnote">Count one thing only — the hard strips — and there is no table to read at the
+      end. This gives the same answer as the published rule for every possible sequence of strips.</div>`
 };
 const UDDER = where => `
   ${steps([where,
@@ -533,7 +577,7 @@ const store = {
 const loadAll = () => { try{ return JSON.parse(store.get(KEY)||"[]"); }catch(e){ return []; } };
 const saveAll = l  => store.set(KEY, JSON.stringify(l));
 function persist(){
-  if (!S) return;
+  if (!S || S.practice) return;      // practice sessions are never written to the iPad
   const all = loadAll(); const i = all.findIndex(x => x.id === S.id);
   if (i >= 0) all[i] = S; else all.push(S);
   saveAll(all);
@@ -542,14 +586,15 @@ function persist(){
 /* ══════════════════════════════════════════════════════════════════
    STATE
    ══════════════════════════════════════════════════════════════════ */
-let S = null, ai = 0, mirrored = false, ROWS = 5;
+let S = null, ai = 0, ROWS = 5;
 let panelTeat = null;
 const a  = () => A[ai];
 const $  = id => document.getElementById(id);
 const band = () => Math.max(0, HERD_BANDS.indexOf(S.herd));
 const target = as => as.target[band()];
 
-function show(n){ ["setup","main","review"].forEach(s => $(s).classList.toggle("on", s===n)); }
+function show(n){ ["home","setup","resume","main","review"]
+  .forEach(s => $(s).classList.toggle("on", s===n)); }
 let tT; function toast(m){ const t=$("toast"); t.textContent=m; t.classList.add("show");
   clearTimeout(tT); tT=setTimeout(()=>t.classList.remove("show"),1500); }
 function tick(){ if (navigator.vibrate) try{ navigator.vibrate(11); }catch(e){} }
@@ -603,11 +648,11 @@ function renderNav(){
 
 function render(){
   const as = a();
+  $("pracBar").classList.toggle("on", !!S.practice);
   $("mFarm").textContent = S.farm;
   $("mDate").textContent = S.date + " · " + S.observer + " · herd " + S.herd;
   $("hint").innerHTML = `<b>${as.name}</b> — ${as.hint} &nbsp;·&nbsp; <b>${count(as)} / ${target(as)} ${as.unit}</b>`;
   const teatish = as.level !== "cow";
-  $("mirrorBtn").style.display = teatish ? "" : "none";
   $("cowBox").style.display    = teatish ? "" : "none";
   $("mCow").textContent = cowOf(as.id);
   $("mCowLbl").textContent = "Cow · " + S.obsCode;
@@ -618,7 +663,7 @@ function render(){
   renderFoot();
 }
 
-const order = () => mirrored ? ["RF","LF","RB","LB"] : ["LF","RF","LB","RB"];
+const order = () => TEATS;      // always LF RF LB RB
 
 function optHTML(as, code, on){
   const o = as.options.find(x=>x.code===code);
@@ -898,9 +943,7 @@ $("guideBtn").onclick = ()=>{
   $("guide").classList.add("on");
 };
 $("gClose").onclick = ()=> $("guide").classList.remove("on");
-$("mirrorBtn").onclick = ()=>{ mirrored=!mirrored; render();
-  toast(mirrored?"Right side shown on the left":"Left side shown on the left"); };
-$("homeBtn").onclick   = ()=>{ persist(); show("setup"); initSetup(); };
+$("homeBtn").onclick   = ()=>{ persist(); show("home"); initHome(); };
 $("reviewBtn").onclick = ()=> renderReview();
 $("rvBack").onclick    = ()=> show("main");
 
@@ -1207,17 +1250,55 @@ $("rvCopy").onclick = async ()=>{
    SETUP
    ══════════════════════════════════════════════════════════════════ */
 let pickObs = "", pickHerd = "";
+/* ── Home ─────────────────────────────────────────────────────────── */
+const today = () => new Date().toISOString().slice(0,10);
+function initHome(){
+  const n = loadAll().length;
+  $("mResume").disabled = n === 0;
+  $("mResumeSub").textContent = n
+    ? `${n} visit${n>1?"s":""} saved on this iPad.`
+    : "No visits saved on this iPad yet.";
+}
+$("mPractice").onclick = ()=>{
+  /* A throwaway session. persist() ignores it, so nothing reaches the iPad
+     and it can never be mistaken for a farm visit. */
+  S = {id:"practice", practice:true, farm:"PRACTICE", date:today(),
+       observer:"Practice", obsCode:"PR", herd:"400",
+       recs:[], cow:{}, start:{}, last:A[0].id};
+  ai = 0; show("main"); render();
+};
+$("pracExit").onclick = ()=>{ S = null; show("home"); initHome(); };
+$("mNew").onclick    = ()=>{ show("setup"); initSetup(); };
+$("mResume").onclick = ()=>{ show("resume"); renderResume(); };
+$("suBack").onclick  = ()=>{ show("home"); initHome(); };
+$("rsBack").onclick  = ()=>{ show("home"); initHome(); };
+
+function renderResume(){
+  const all = loadAll();
+  $("rsBody").innerHTML = !all.length
+    ? `<div class="empty">No visits saved on this iPad.</div>`
+    : `<table><thead><tr><th>Farm</th><th>Date</th><th>Observer</th><th>Records</th><th></th><th></th></tr></thead><tbody>`
+      + all.map((s,i)=>`<tr><td><b>${s.farm}</b></td><td>${s.date}</td><td>${s.observer||""}</td>
+          <td>${(s.recs||[]).length}</td>
+          <td><button class="jump" data-o="${i}">Open</button></td>
+          <td><button class="del" data-r="${i}">Delete</button></td></tr>`).join("")
+      + `</tbody></table>`;
+  $("rsBody").querySelectorAll("[data-o]").forEach(b=>b.onclick=()=>openSession(loadAll()[+b.dataset.o]));
+  $("rsBody").querySelectorAll("[data-r]").forEach(b=>b.onclick=()=>{
+    const l=loadAll(); l.splice(+b.dataset.r,1); saveAll(l); renderResume(); });
+}
+$("rsCsv").onclick = ()=>{
+  const all = loadAll();
+  if (!all.length) return toast("Nothing to export");
+  download("cowobs_all_"+today()+".csv", csv(all)); toast("All visits exported");
+};
+
 function initSetup(){
   $("pObs").innerHTML  = OBSERVERS.concat(["Other"]).map(o=>
     `<button data-o="${o}" class="${pickObs===o?"sel":""}">${o}</button>`).join("");
   $("pHerd").innerHTML = HERD_BANDS.map(b=>
     `<button data-h="${b}" class="${pickHerd===b?"sel":""}">${b}</button>`).join("");
   if (!$("fDate").value) $("fDate").value = new Date().toISOString().slice(0,10);
-  const all = loadAll(), last = all[all.length-1];
-  $("resumeBox").innerHTML = last
-    ? `<div class="resume">Last visit: <b>${last.farm}</b> · ${last.date} · ${(last.recs||[]).length} records
-       <button class="btn ghost" id="resumeBtn">Resume this visit</button></div>` : "";
-  if (last) $("resumeBtn").onclick = ()=> openSession(last);
 }
 $("pObs").addEventListener("click", e=>{ const b=e.target.closest("[data-o]"); if(!b)return;
   pickObs = b.dataset.o; $("fObsOther").style.display = pickObs==="Other" ? "" : "none"; initSetup(); });
@@ -1225,7 +1306,8 @@ $("pHerd").addEventListener("click", e=>{ const b=e.target.closest("[data-h]"); 
   pickHerd = b.dataset.h; initSetup(); });
 
 function openSession(s){
-  S = s; S.recs = S.recs||[]; S.cow = S.cow||{}; S.start = S.start||{};
+  S = s; S.practice = false;        // anything opened from storage is a real visit
+  S.recs = S.recs||[]; S.cow = S.cow||{}; S.start = S.start||{};
   S.obsCode = S.obsCode || initials(S.observer);
   ai = Math.max(0, A.findIndex(x=>x.id===S.last));
   show("main"); render();
@@ -1241,23 +1323,8 @@ $("startBtn").onclick = ()=>{
     recs:[], cow:{}, start:{}, last:A[0].id });
   persist();
 };
-$("allDataBtn").onclick = ()=>{
-  const all = loadAll(); if(!all.length) return toast("No saved visits");
-  show("review"); $("rvTitle").textContent = "Saved visits";
-  $("rvBody").innerHTML = `<table><thead><tr><th>Farm</th><th>Date</th><th>Observer</th><th>Records</th><th></th><th></th></tr></thead><tbody>`
-    + all.map((s,i)=>`<tr><td><b>${s.farm}</b></td><td>${s.date}</td><td>${s.observer||""}</td>
-        <td>${(s.recs||[]).length}</td><td><button class="jump" data-o="${i}">Open</button></td>
-        <td><button class="del" data-r="${i}">Delete</button></td></tr>`).join("") + `</tbody></table>`;
-  $("rvBody").querySelectorAll("[data-o]").forEach(b=>b.onclick=()=>{
-    $("rvBack").onclick = ()=>show("main"); openSession(loadAll()[+b.dataset.o]); });
-  $("rvBody").querySelectorAll("[data-r]").forEach(b=>b.onclick=()=>{
-    const l=loadAll(); l.splice(+b.dataset.r,1); saveAll(l); $("allDataBtn").click(); });
-  $("rvBack").onclick = ()=>{ show("setup"); initSetup(); $("rvBack").onclick = ()=>show("main"); };
-  $("rvCsv").onclick  = ()=>{ download("cowobs_all_"+new Date().toISOString().slice(0,10)+".csv", csv(loadAll()));
-    toast("All visits exported"); };
-};
 
-initSetup();
+initHome();
 </script>
 </body>
 </html>

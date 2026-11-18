@@ -70,6 +70,21 @@ header{display:flex;align-items:center;gap:9px;padding:7px 11px;background:var(-
 .cowbox{background:var(--panel2);border:1px solid var(--line);border-radius:11px;padding:5px 15px;text-align:center;flex:0 0 auto}
 .cowbox .n{font-size:24px;font-weight:700;line-height:1}
 .cowbox .l{font-size:9px;color:var(--dim);text-transform:uppercase;letter-spacing:1px}
+.slipbox{border-color:var(--s3);padding-left:19px;padding-right:19px}
+.slipbox .n{color:var(--s3)}
+.slipbox:active{background:var(--s3);}
+.slipbox:active .n,.slipbox:active .l{color:#2a1c00}
+.hintline{font-size:11.5px;color:var(--dim);margin-top:6px;line-height:1.4}
+#sprBar{display:none;align-items:center;gap:7px;background:var(--panel);border:1px solid var(--line);
+  border-radius:11px;padding:7px 9px;margin-bottom:8px;flex:0 0 auto}
+#sprBar.on{display:flex}
+#sprBar .lab{font-size:11.5px;color:var(--dim);line-height:1.3;flex:1 1 auto}
+#sprBar .lab b{color:var(--txt);display:block;font-size:13px}
+#sprBar .n{font-size:22px;font-weight:700;min-width:48px;text-align:center}
+#sprBar .n.est{color:var(--s3)}
+#sprBar button{background:var(--panel2);border:1px solid var(--line);border-radius:9px;
+  padding:10px 12px;font-size:14px;font-weight:700;min-width:48px}
+#sprBar button:active{background:var(--tap)}
 .hbtn{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:10px 13px;
   font-size:13px;font-weight:600;flex:0 0 auto;white-space:nowrap}
 .hbtn:active{background:var(--tap)}
@@ -269,8 +284,10 @@ td{padding:9px 7px;border-bottom:1px solid #253140}
     <label>Observer</label>
     <div class="pick" id="pObs"></div>
     <input type="text" id="fObsOther" placeholder="Other observer" style="display:none;margin-top:8px">
-    <label>Herd size (sets the sample targets)</label>
-    <div class="pick" id="pHerd"></div>
+    <label for="fCows">Number of cows milked today</label>
+    <input type="number" id="fCows" inputmode="numeric" min="1" max="5000"
+           placeholder="e.g. 320">
+    <div class="hintline">Sets every sample target, and is the denominator for the cup slip rate.</div>
     <button class="btn" id="startBtn">Start farm visit</button>
   </div>
  </div>
@@ -283,6 +300,8 @@ td{padding:9px 7px;border-bottom:1px solid #253140}
   <header>
     <button class="hbtn" id="homeBtn">&#9776;</button>
     <div class="meta"><b id="mFarm">—</b><span id="mDate">—</span></div>
+    <button class="cowbox slipbox" id="slipBox" title="Tap for each audible cup slip">
+      <div class="n" id="mSlips">0</div><div class="l">Slips</div></button>
     <div class="cowbox" id="cowBox"><div class="n" id="mCow">1</div><div class="l" id="mCowLbl">Cow</div></div>
     <button class="hbtn" id="guideBtn" title="How to do this assessment">?</button>
     <button class="hbtn" id="reviewBtn">Review</button>
@@ -291,6 +310,7 @@ td{padding:9px 7px;border-bottom:1px solid #253140}
   <div class="pbar"><i id="pbar"></i></div>
   <main>
     <div class="hint" id="hint"></div>
+    <div id="sprBar"></div>
     <div id="area"></div>
   </main>
   <footer id="foot"></footer>
@@ -343,7 +363,16 @@ td{padding:9px 7px;border-bottom:1px solid #253140}
    Measurements sheet. Edit here if a protocol changes.
    ══════════════════════════════════════════════════════════════════ */
 
-const HERD_BANDS = ["100","150","200","400","600","1000+"];
+/* Sample size for a proportion with finite population correction. This is the
+   formula behind the published herd-size tables in "Stream 1.2 - Data collection
+   design.xlsx" — it reproduces 29 of their 30 values exactly — so targets can now
+   be computed from the actual number of cows rather than read off a band.
+     n0 = 1.96^2 p(1-p) / d^2 ,  n = ceil( n0 / (1 + n0/N) )
+   N is cows for cow-level assessments, 4 x cows for teat-level ones. */
+function sampleSize(p, d, N){
+  const n0 = 1.96*1.96*p*(1-p)/(d*d);
+  return Math.min(Math.ceil(n0/(1 + n0/N)), N);
+}
 
 const OBSERVERS = ["Dini H","Luke I","Francisco S","Nicholas G","Paige A","Sam R"];
 
@@ -354,13 +383,13 @@ const TEAT_LABEL = {LF:"LEFT FRONT", RF:"RIGHT FRONT", LB:"LEFT BACK", RB:"RIGHT
           "teat" = 2x2 quadrant grid, one cow at a time
           "cond" = 2x2 grid, tap a teat to open the parameter panel
    unit  : what the target counts (cows / teats / quarters)
-   target: sample size per herd band, in the same order as HERD_BANDS  */
+   p / d  : expected prevalence and precision, which set the sample size  */
 const A = [
   {
     id:"teat_hyg", tab:"Teat<br>hygiene", name:"Teat end hygiene (swab test)",
     level:"teat", unit:"teats", split:true,
     varname:"teat_end_dirt", dipvar:"teat_dip_on_swab",
-    target:[68,72,74,77,79,80],
+    p:0.3, d:0.10,
     hint:"After the farm's normal prep. Score dirt first, then flag teat dip separately if it is on the swab.",
     options:[
       {code:"C",  main:"Clean",            label:"Clean",            c:1},
@@ -372,7 +401,7 @@ const A = [
   {
     id:"milkout", tab:"Milk-out", name:"Completeness of milking (Easy Strips)",
     level:"teat", unit:"quarters", varname:"milking_complete",
-    target:[68,72,74,77,79,80],
+    p:0.3, d:0.10,
     hint:"Count hard strips: 2 hard → GOOD. Reach 6 strips without 2 hard → POOR.",
     options:[
       {code:"G", main:"GOOD", sub:"2 hard strips",                 label:"Good", c:1},
@@ -382,14 +411,14 @@ const A = [
     {
     id:"condition", tab:"Teat<br>condition", name:"Teat end & teat condition",
     level:"cond", unit:"teats",
-    target:[103,113,119,128,131,134],
+    p:0.1, d:0.05,
     hint:"Within 30–60 s of cups off, under a torch. Tap NORMAL, or ABNORMAL to record the details.",
     options:[]
   },
   {
     id:"dip", tab:"Dip<br>coverage", name:"Teat dip coverage (paper test)",
     level:"teat", unit:"teats", varname:"teat_barrel_disinfectant_covered",
-    target:[32,33,34,34,35,35],
+    p:0.1, d:0.10,
     hint:"Straight after dipping. Wrap a dry towel round the full circumference of the barrel.",
     options:[
       {code:"Y", main:"Covered",           sub:"disinfectant right round the towel", label:"Covered",           c:1},
@@ -399,7 +428,7 @@ const A = [
   {
     id:"udder_lact", tab:"Udder<br>lact", name:"Udder hygiene — lactating cows",
     level:"cow", unit:"cows", varname:"udder_hygiene", cowtype:"lactating",
-    target:[39,44,48,54,56,58],
+    p:0.2, d:0.10,
     hint:"In the bail / on the platform, every second cow. One score per cow.",
     options:[
       {code:"1", label:"No dirt or manure",  c:1},
@@ -409,9 +438,19 @@ const A = [
     ]
   },
   {
+    id:"cluster", tab:"Cluster<br>alignment", name:"Cluster alignment",
+    level:"cow", unit:"cows", varname:"cluster_alignment",
+    p:0.2, d:0.10,        // same sample size as udder hygiene in lactating cows
+    hint:"During milking, with the cluster on. Do not score low-hanging udders or 3-teated cows — skip those and move to the next cow.",
+    options:[
+      {code:"G", main:"Good", sub:"hangs square and even",        label:"Good", c:1},
+      {code:"B", main:"Bad",  sub:"twisted or pulled to one side", label:"Bad",  c:4}
+    ]
+  },
+  {
     id:"udder_dry", tab:"Udder<br>dry", name:"Udder hygiene — dry cows",
     level:"cow", unit:"cows", varname:"udder_hygiene", cowtype:"dry",
-    target:[26,29,30,32,33,34],
+    p:0.1, d:0.10, cap:40,   // Measurements sheet; protocol caps dry cows at 40
     hint:"Springer paddock, during the environment walk. One score per cow. Capped at 40 cows.",
     options:[
       {code:"1", label:"No dirt or manure",  c:1},
@@ -537,6 +576,18 @@ const GUIDES = {
       teats still counts once. Petechiation sits under cutaneous damage and is only visible
       on light-coloured teats.</div>`,
 
+  cluster: () => `
+    ${steps([
+      "During milking, with the cluster <b>on and milking normally</b>.",
+      "Look at the cluster from behind and from the side.",
+      "Judge whether it hangs <b>square and even</b> under the udder.",
+      "One score per cow."])}
+    ${defs([["Good","Hangs squarely, weight even across all four quarters."],
+            ["Bad","Twisted, pulled to one side, dragging on the udder, or one quarter clearly taking more weight than the others."]])}
+    <div class="gnote"><b>Do not score</b> a cow with a low-hanging udder, or a cow with three
+      working teats — alignment cannot be judged fairly on either. Skip her and move to the next
+      cow; she is simply not part of the sample.</div>`,
+
   udder_lact: () => UDDER("In the bail or on the platform, with the udder visible."),
   udder_dry:  () => UDDER("In the springer paddock, viewed from behind or the best angle available."),
 
@@ -590,8 +641,24 @@ let S = null, ai = 0, ROWS = 5;
 let panelTeat = null;
 const a  = () => A[ai];
 const $  = id => document.getElementById(id);
-const band = () => Math.max(0, HERD_BANDS.indexOf(S.herd));
-const target = as => as.target[band()];
+const cowsMilked = () => Math.max(1, +S.cows || 0);
+/* Dry cows are scored in the springer paddock, so the population for that one
+   assessment is the paddock, not the milking herd. The observer counts it on the
+   environment walk (the same figure as REDCap's obs_calv_n_cows). Until it is
+   entered we show a provisional target from a 15% of herd estimate — springer
+   mobs typically run 10-20% of the milking herd. */
+const SPRINGER_EST = 0.15;
+const springerEstimate = () => Math.max(1, Math.round(cowsMilked() * SPRINGER_EST));
+const springers = () => +S.springers || springerEstimate();
+const springersSet = () => !!(+S.springers);
+function target(as){
+  const N = as.id === "udder_dry" ? springers()
+          : cowsMilked() * (as.unit === "cows" ? 1 : 4);
+  const n = sampleSize(as.p, as.d, N);
+  return as.cap ? Math.min(n, as.cap) : n;
+}
+/* Cup slips are counted per 100 cow-milkings (Countdown TN6). */
+const slipRate = () => cowsMilked() ? (S.slips||[]).length / cowsMilked() * 100 : null;
 
 function show(n){ ["home","setup","resume","main","review"]
   .forEach(s => $(s).classList.toggle("on", s===n)); }
@@ -650,13 +717,17 @@ function render(){
   const as = a();
   $("pracBar").classList.toggle("on", !!S.practice);
   $("mFarm").textContent = S.farm;
-  $("mDate").textContent = S.date + " · " + S.observer + " · herd " + S.herd;
+  $("mDate").textContent = S.date + " · " + S.observer + " · " + cowsMilked() + " cows";
   $("hint").innerHTML = `<b>${as.name}</b> — ${as.hint} &nbsp;·&nbsp; <b>${count(as)} / ${target(as)} ${as.unit}</b>`;
   const teatish = as.level !== "cow";
   $("cowBox").style.display    = teatish ? "" : "none";
   $("mCow").textContent = cowOf(as.id);
   $("mCowLbl").textContent = "Cow · " + S.obsCode;
+  $("mSlips").textContent = (S.slips||[]).length;
   renderNav();
+  const spr = as.id === "udder_dry";
+  $("sprBar").classList.toggle("on", spr);
+  if (spr) renderSpringerBar();
   if (as.level === "cow")  renderBatch();
   else if (as.level === "teat") renderGrid();
   else renderCond();
@@ -775,6 +846,21 @@ function setCondParam(cow, teat, pid, code){
   persist();
 }
 
+function renderSpringerBar(){
+  const est = !springersSet();
+  $("sprBar").innerHTML =
+    `<div class="lab"><b>Cows in the springer paddock</b>
+       ${est ? "estimated at 15% of the milking herd — set the real count"
+             : "counted on the environment walk"}</div>
+     <button data-spr="-10">&minus;10</button><button data-spr="-1">&minus;1</button>
+     <div class="n ${est?"est":""}">${springers()}</div>
+     <button data-spr="1">+1</button><button data-spr="10">+10</button>`;
+}
+$("sprBar").addEventListener("click", e=>{
+  const b = e.target.closest("[data-spr]"); if(!b) return;
+  S.springers = Math.max(1, springers() + (+b.dataset.spr));
+  persist(); render(); tick();
+});
 function renderBatch(){
   const as = a(), start = startOf(as.id);
   $("area").className = "batch";
@@ -935,6 +1021,11 @@ function handleArea(e){
    so that dragging to scroll it cannot score a row by accident. */
 $("area").addEventListener("pointerdown", e => { if (a().level !== "cow") handleArea(e); });
 $("area").addEventListener("click",       e => { if (a().level === "cow") handleArea(e); });
+$("slipBox").addEventListener("pointerdown", ()=>{
+  (S.slips = S.slips || []).push(Date.now());
+  $("mSlips").textContent = S.slips.length;
+  persist(); tick();
+});
 $("guideBtn").onclick = ()=>{
   const as = a(), g = GUIDES[as.id];
   $("gTitle").textContent = as.name;
@@ -966,6 +1057,7 @@ const TARGETS = {
   milkout:    {limit:20, text:"trigger > 20% of quarters · SmartSAMM kit; Poor defined in Countdown TN6"},
   teat_hyg:   {limit:null, text:"no published benchmark — to be set after the pilot"},
   teat_dip_swab: {limit:null, text:"descriptive — recorded separately from dirt"},
+  cluster:    {limit:null, text:"no published trigger — Countdown TN6 treats alignment as a cause, not a measure"},
   dip:        {limit:null, text:"no published trigger"},
   udder_lact: {limit:20, text:"trigger > 20% of cows scoring 3 or 4 · TN9 §9.3 (Schreiner & Ruegg 2003)"},
   udder_dry:  {limit:20, text:"same chart applied to springers · TN9 §9.3"},
@@ -1023,6 +1115,10 @@ function summary(){
   const dp = recsOf("dip");
   add(main,"% teats with a dry patch (dip missed)", dp.filter(r=>r.code==="N").length, dp.length, "teats", "dip");
 
+  const cl_ = recsOf("cluster");
+  add(main,"% cows with bad cluster alignment",
+      cl_.filter(r=>r.code==="B").length, cl_.length, "cows", "cluster");
+
   const ul = recsOf("udder_lact");
   add(main,"% dirty cows — lactating (score 3 or 4)", ul.filter(r=>+r.code>=3).length, ul.length, "cows", "udder_lact");
   const ud = recsOf("udder_dry");
@@ -1077,11 +1173,32 @@ function condCows(teats){
 function renderReview(){
   show("review");
   $("rvTitle").textContent = S.farm + " · " + S.date;
-  let h = `<h4 class="sec">Sample progress (herd size ${S.herd})</h4><div class="tiles">` +
+  let h = `<h4 class="sec">Sample progress (${cowsMilked()} cows milked)</h4><div class="tiles">` +
     A.map(x=>{ const n=count(x), t=target(x), done=n>=t;
+      const extra = x.id==="udder_dry"
+        ? ` · paddock ${springers()}${springersSet()?"":" (estimated)"}` : "";
       return `<div class="tile"><div class="v ${done?"good":n?"warn":"bad"}">${n} / ${t}</div>
-        <div class="k">${x.name}</div><div class="d">${done?"target met":(t-n)+" "+x.unit+" to go"}</div></div>`;
+        <div class="k">${x.name}</div>
+        <div class="d">${done?"target met":(t-n)+" "+x.unit+" to go"}${extra}</div></div>`;
     }).join("") + `</div>`;
+
+  const slips = (S.slips||[]).length, rate = slipRate();
+  h += `<h4 class="sec">Cup slips</h4>
+    <div class="tiles"><div class="tile">
+      <div class="v ${rate===null?"":rate<5?"good":rate<10?"warn":"bad"}">${rate===null?"—":rate.toFixed(1)}</div>
+      <div class="k">Audible cup slips per 100 cow-milkings</div>
+      <div class="d">${slips} slip${slips===1?"":"s"} over ${cowsMilked()} cows milked</div>
+      <div class="tg">reference &lt; 10, preferably &lt; 5 · Countdown TN6 (Mein &amp; Reid 1996)</div>
+    </div>
+    <div class="tile"><div class="v">${slips}</div><div class="k">Slips counted</div>
+      <div class="d">correct a mis-tap here</div>
+      <div style="display:flex;gap:7px;margin-top:8px">
+        <button class="hbtn" id="slipMinus" style="flex:1">&minus; 1</button>
+        <button class="hbtn" id="slipPlus"  style="flex:1">+ 1</button></div>
+    </div></div>
+    <div class="src">Counted as <b>any audible slip</b>, per the Stream 1.2 data collection design.
+      Technote 6 defines its &lt; 10 / &lt; 5 guideline on slips or falls <i>requiring correction by the
+      milker</i>, a narrower event, so treat the reference as indicative rather than a strict trigger.</div>`;
 
   const sm = summary();
   const tiles = list => list.map(s=>`<div class="tile"><div class="v ${s.tone||""}">${s.v}</div>
@@ -1141,6 +1258,10 @@ function renderReview(){
     }).join("") + `</tbody></table>`;
   }
   $("rvBody").innerHTML = h;
+  if ($("slipMinus")) $("slipMinus").onclick = ()=>{
+    if ((S.slips||[]).length){ S.slips.pop(); persist(); renderReview(); } };
+  if ($("slipPlus")) $("slipPlus").onclick = ()=>{
+    (S.slips = S.slips||[]).push(Date.now()); persist(); renderReview(); };
   if ($("lesToggle")) $("lesToggle").onclick = () => {
     const box = $("lesBox"), open = box.style.display === "none";
     box.style.display = open ? "" : "none";
@@ -1170,7 +1291,7 @@ const farmKey = f => String(f||"").toUpperCase().replace(/[^A-Z0-9]/g,"");
 
 function csv(sessions){
   const q = v => `"${String(v==null?"":v).replace(/"/g,'""')}"`;
-  const rows = [["farm","farm_key","visit_date","observer","observer_code","herd_size_band",
+  const rows = [["farm","farm_key","visit_date","observer","observer_code","cows_milked",
                  "assessment_id","assessment","cow_type","cow_seq","cow_uid","teat",
                  "variable","code","label","recorded_at"].join(",")];
   sessions.forEach(s=>{
@@ -1219,11 +1340,24 @@ function csv(sessions){
         const o = as.options.find(z=>z.code===r.code); label = o?o.label:"";
       }
       const oc = s.obsCode || initials(s.observer);
-      rows.push([s.farm, farmKey(s.farm), s.date, s.observer, oc, s.herd,
+      rows.push([s.farm, farmKey(s.farm), s.date, s.observer, oc, s.cows,
                  as.id, as.name.replace(/—/g,"-"), as.cowtype||"",
                  r.cow, oc+"-"+r.cow, r.teat||"", r.p, r.code, label,
                  new Date(r.ts).toISOString()].map(q).join(","));
     });
+    /* One row per cup slip, timestamped. Not tied to a cow or teat — slips are
+       counted continuously across the whole milking. */
+    const oc = s.obsCode || initials(s.observer);
+    if (+s.springers) rows.push(
+      [s.farm, farmKey(s.farm), s.date, s.observer, oc, s.cows,
+       "udder_dry", "Udder hygiene - dry cows", "dry", "", "", "",
+       "springer_paddock_cows", String(+s.springers),
+       "Cows in the springer paddock (denominator for the dry cow sample)",
+       new Date(s.date).toISOString()].map(q).join(","));
+    (s.slips||[]).forEach((ts,i)=>rows.push(
+      [s.farm, farmKey(s.farm), s.date, s.observer, oc, s.cows,
+       "cupslip", "Teat cup slips", "", "", "", "", "cup_slip", "1",
+       "Audible cup slip "+(i+1), new Date(ts).toISOString()].map(q).join(",")));
   });
   return rows.join("\r\n");
 }
@@ -1249,7 +1383,7 @@ $("rvCopy").onclick = async ()=>{
 /* ══════════════════════════════════════════════════════════════════
    SETUP
    ══════════════════════════════════════════════════════════════════ */
-let pickObs = "", pickHerd = "";
+let pickObs = "";
 /* ── Home ─────────────────────────────────────────────────────────── */
 const today = () => new Date().toISOString().slice(0,10);
 function initHome(){
@@ -1263,7 +1397,7 @@ $("mPractice").onclick = ()=>{
   /* A throwaway session. persist() ignores it, so nothing reaches the iPad
      and it can never be mistaken for a farm visit. */
   S = {id:"practice", practice:true, farm:"PRACTICE", date:today(),
-       observer:"Practice", obsCode:"PR", herd:"400",
+       observer:"Practice", obsCode:"PR", cows:300, slips:[],
        recs:[], cow:{}, start:{}, last:A[0].id};
   ai = 0; show("main"); render();
 };
@@ -1296,19 +1430,18 @@ $("rsCsv").onclick = ()=>{
 function initSetup(){
   $("pObs").innerHTML  = OBSERVERS.concat(["Other"]).map(o=>
     `<button data-o="${o}" class="${pickObs===o?"sel":""}">${o}</button>`).join("");
-  $("pHerd").innerHTML = HERD_BANDS.map(b=>
-    `<button data-h="${b}" class="${pickHerd===b?"sel":""}">${b}</button>`).join("");
   if (!$("fDate").value) $("fDate").value = new Date().toISOString().slice(0,10);
 }
 $("pObs").addEventListener("click", e=>{ const b=e.target.closest("[data-o]"); if(!b)return;
   pickObs = b.dataset.o; $("fObsOther").style.display = pickObs==="Other" ? "" : "none"; initSetup(); });
-$("pHerd").addEventListener("click", e=>{ const b=e.target.closest("[data-h]"); if(!b)return;
-  pickHerd = b.dataset.h; initSetup(); });
 
 function openSession(s){
   S = s; S.practice = false;        // anything opened from storage is a real visit
   S.recs = S.recs||[]; S.cow = S.cow||{}; S.start = S.start||{};
   S.obsCode = S.obsCode || initials(S.observer);
+  S.slips = S.slips || [];
+  // sessions saved before herd size became a number carry a band string
+  if (!S.cows) S.cows = parseInt(String(S.herd||"400").replace("+",""), 10) || 400;
   ai = Math.max(0, A.findIndex(x=>x.id===S.last));
   show("main"); render();
 }
@@ -1316,10 +1449,11 @@ $("startBtn").onclick = ()=>{
   const farm = $("fFarm").value.trim();
   if (!farm) return toast("Enter a farm ID or name");
   if (!pickObs) return toast("Choose an observer");
-  if (!pickHerd) return toast("Choose the herd size band");
+  const cows = parseInt($("fCows").value, 10);
+  if (!cows || cows < 1) return toast("Enter the number of cows milked today");
   const obsName = pickObs === "Other" ? ($("fObsOther").value.trim() || "Other") : pickObs;
   openSession({ id:"v"+Date.now(), farm, date:$("fDate").value||new Date().toISOString().slice(0,10),
-    observer:obsName, obsCode:initials(obsName), herd:pickHerd,
+    observer:obsName, obsCode:initials(obsName), cows,
     recs:[], cow:{}, start:{}, last:A[0].id });
   persist();
 };
